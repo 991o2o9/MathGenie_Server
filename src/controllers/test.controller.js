@@ -9,4 +9,4 @@ async function passTest(req, res) {
   res.json({ resultPercent: 100, correct: 5, total: 5 });
 }
 
-module.exports = { passTest };
+export { passTest };

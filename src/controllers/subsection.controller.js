@@ -1,7 +1,7 @@
 // Контроллер для управления подразделами
 // ...
 
-const Subsection = require('../models/subsection.model');
+import Subsection from '../models/subsection.model.js';
 
 // Создать подраздел
 async function createSubsection(req, res) {
@@ -47,7 +47,7 @@ async function deleteSubsection(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
+export {
   createSubsection,
   getSubsections,
   getSubsection,

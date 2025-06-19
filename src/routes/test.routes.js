@@ -44,11 +44,12 @@
 // Роуты для управления тестами
 // ...
 
-const express = require('express');
+import express from 'express';
+import { passTest } from '../controllers/test.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+
 const router = express.Router();
-const { passTest } = require('../controllers/test.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
 
 router.post('/pass', authMiddleware, passTest);
 
-module.exports = router;
+export default router;

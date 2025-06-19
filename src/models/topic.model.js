@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const topicSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -11,4 +11,5 @@ const topicSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('Topic', topicSchema);
+const Topic = mongoose.model('Topic', topicSchema);
+export default Topic;

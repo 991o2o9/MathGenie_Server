@@ -1,10 +1,12 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const aiQuestionSchema = new mongoose.Schema({
   question: { type: String, required: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   count: { type: Number, default: 1 },
   createdAt: { type: Date, default: Date.now },
+  answer: { type: String },
 });
 
-module.exports = mongoose.model('AiQuestion', aiQuestionSchema);
+const AiQuestion = mongoose.model('AiQuestion', aiQuestionSchema);
+export default AiQuestion;

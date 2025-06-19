@@ -1,8 +1,8 @@
 // Контроллер для управления пробниками (OrtSample)
 // ...
 
-const OrtSample = require('../models/ortSample.model');
-const path = require('path');
+import OrtSample from '../models/ortSample.model.js';
+import path from 'path';
 
 // Создать пробник (текст или файл)
 async function createOrtSample(req, res) {
@@ -55,7 +55,7 @@ async function deleteOrtSample(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
+export {
   createOrtSample,
   getOrtSamples,
   getOrtSample,

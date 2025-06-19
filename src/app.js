@@ -1,55 +1,52 @@
-const express = require('express');
-const cors = require('cors');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Routes imports
+import authRoutes from './routes/auth.routes.js';
+import testRoutes from './routes/test.routes.js';
+import aiQuestionRoutes from './routes/aiQuestion.routes.js';
+import subjectRoutes from './routes/subject.routes.js';
+import subsectionRoutes from './routes/subsection.routes.js';
+import topicRoutes from './routes/topic.routes.js';
+import ortSampleRoutes from './routes/ortSample.routes.js';
+import testHistoryRoutes from './routes/testHistory.routes.js';
+import userRoutes from './routes/user.routes.js';
+
+// Middleware imports
+import authMiddleware from './middlewares/auth.middleware.js';
+import roleMiddleware from './middlewares/role.middleware.js';
+
+// Config imports
+import { getAdminConfig } from './config/adminjs.js';
+import swaggerSpec from './config/swagger.js';
+import swaggerUi from 'swagger-ui-express';
+
+// Models
+import User from './models/user.model.js';
+import { comparePassword } from './utils/bcrypt.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Роуты
-const authRoutes = require('./routes/auth.routes');
+// Routes
 app.use('/auth', authRoutes);
-
-const testRoutes = require('./routes/test.routes');
 app.use('/test', testRoutes);
-
-const aiQuestionRoutes = require('./routes/aiQuestion.routes');
 app.use('/ai', aiQuestionRoutes);
-
-const subjectRoutes = require('./routes/subject.routes');
 app.use('/subjects', subjectRoutes);
-
-const subsectionRoutes = require('./routes/subsection.routes');
 app.use('/subsections', subsectionRoutes);
-
-const topicRoutes = require('./routes/topic.routes');
 app.use('/topics', topicRoutes);
-
-const ortSampleRoutes = require('./routes/ortSample.routes');
 app.use('/ort-samples', ortSampleRoutes);
-
-const testHistoryRoutes = require('./routes/testHistory.routes');
-// Раздача файлов из uploads
-const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Пример защищённого эндпоинта
-const authMiddleware = require('./middlewares/auth.middleware');
-const roleMiddleware = require('./middlewares/role.middleware');
-
-/**
- * @swagger
- * /protected:
- *   get:
- *     summary: Пример защищённого эндпоинта (требует JWT)
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Доступ разрешён
- *       401:
- *         description: Нет или неверный токен
- */
 app.get('/protected', authMiddleware, (req, res) => {
   res.json({ message: 'Доступ разрешён', user: req.user });
 });
@@ -75,8 +72,6 @@ app.get('/admin-only', authMiddleware, roleMiddleware('ADMIN'), (req, res) => {
 });
 
 // AdminJS
-const getAdminConfig = require('./config/adminjs');
-const User = require('./models/user.model');
 (async () => {
   const { adminJs, AdminJSExpress } = await getAdminConfig();
   const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
@@ -85,13 +80,16 @@ const User = require('./models/user.model');
       authenticate: async (email, password) => {
         const user = await User.findOne({ username: email });
         if (user && user.role === 'ADMIN') {
-          const { comparePassword } = require('./utils/bcrypt');
           const isMatch = await comparePassword(password, user.password);
           if (isMatch) return user;
         }
         return false;
       },
       cookiePassword: process.env.ADMIN_COOKIE_SECRET || 'admin_cookie_secret',
+      cookieOptions: {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
+        httpOnly: true,
+      },
     },
     null,
     {
@@ -103,8 +101,6 @@ const User = require('./models/user.model');
 })();
 
 // Swagger
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./config/swagger');
 app.use(
   '/api/docs',
   swaggerUi.serve,
@@ -131,7 +127,6 @@ app.use(
   })
 );
 
-const userRoutes = require('./routes/user.routes');
 app.use('/users', userRoutes);
 
 // Список основных маршрутов API для фронта (HTML)
@@ -201,9 +196,9 @@ app.get('/api', (req, res) => {
             .join('')}
         </table>
         <p style="text-align:center">Swagger: <a href="/api/docs">/api/docs</a> | Admin: <a href="/admin">/admin</a></p>
-      </body>v
+      </body>
     </html>
   `);
 });
 
-module.exports = app;
+export default app;

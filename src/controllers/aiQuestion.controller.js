@@ -1,8 +1,8 @@
 // Контроллер для AI-вопросов
 // ...
 
-const AiQuestion = require('../models/aiQuestion.model');
-const { askHuggingFace } = require('../utils/huggingface');
+import AiQuestion from '../models/aiQuestion.model.js';
+import { askHuggingFace } from '../utils/huggingface.js';
 
 // GET /ai/top-questions
 async function getTopQuestions(req, res) {
@@ -28,9 +28,10 @@ async function askAi(req, res) {
   const existing = await AiQuestion.findOne({ question });
   if (existing) {
     existing.count++;
+    existing.answer = answer;
     await existing.save();
   } else {
-    await AiQuestion.create({ question, user: userId });
+    await AiQuestion.create({ question, user: userId, answer });
   }
   res.json({ question, answer });
 }
@@ -55,7 +56,7 @@ async function deleteAiQuestion(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
+export {
   getTopQuestions,
   askAi,
   getAllAiQuestions,

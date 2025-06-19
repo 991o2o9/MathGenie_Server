@@ -1,7 +1,7 @@
 // Контроллер для управления темами
 // ...
 
-const Topic = require('../models/topic.model');
+import Topic from '../models/topic.model.js';
 
 // Создать тему
 async function createTopic(req, res) {
@@ -49,10 +49,4 @@ async function deleteTopic(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
-  createTopic,
-  getTopics,
-  getTopic,
-  updateTopic,
-  deleteTopic,
-};
+export { createTopic, getTopics, getTopic, updateTopic, deleteTopic };

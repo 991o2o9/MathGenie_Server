@@ -1,4 +1,4 @@
-# MathBack — образовательная платформа на Express + MongoDB
+# MathGenie — образовательная платформа на Express + MongoDB
 
 ## Запуск
 

@@ -1,18 +1,20 @@
 // Конфиг для AdminJS
 // ...
 
+import User from '../models/user.model.js';
+import Subject from '../models/subject.model.js';
+import Subsection from '../models/subsection.model.js';
+import Topic from '../models/topic.model.js';
+import OrtSample from '../models/ortSample.model.js';
+import TestHistory from '../models/testHistory.model.js';
+import AiQuestion from '../models/aiQuestion.model.js';
+import { hashPassword } from '../utils/bcrypt.js';
+
 async function getAdminConfig() {
+  const { dark, light, noSidebar } = await import('@adminjs/themes');
   const AdminJS = (await import('adminjs')).default;
   const AdminJSExpress = (await import('@adminjs/express')).default;
   const AdminJSMongoose = await import('@adminjs/mongoose');
-
-  const User = require('../models/user.model');
-  const Subject = require('../models/subject.model');
-  const Subsection = require('../models/subsection.model');
-  const Topic = require('../models/topic.model');
-  const OrtSample = require('../models/ortSample.model');
-  const TestHistory = require('../models/testHistory.model');
-  const AiQuestion = require('../models/aiQuestion.model');
 
   AdminJS.registerAdapter({
     Database: AdminJSMongoose.Database,
@@ -20,6 +22,8 @@ async function getAdminConfig() {
   });
 
   const adminJs = new AdminJS({
+    defaultTheme: dark.id,
+    availableThemes: [dark, light, noSidebar],
     resources: [
       {
         resource: User,
@@ -43,7 +47,6 @@ async function getAdminConfig() {
             new: {
               before: async (request) => {
                 if (request.payload && request.payload.password) {
-                  const { hashPassword } = require('../utils/bcrypt');
                   request.payload.password = await hashPassword(
                     request.payload.password
                   );
@@ -54,7 +57,6 @@ async function getAdminConfig() {
             edit: {
               before: async (request) => {
                 if (request.payload && request.payload.password) {
-                  const { hashPassword } = require('../utils/bcrypt');
                   request.payload.password = await hashPassword(
                     request.payload.password
                   );
@@ -113,7 +115,7 @@ async function getAdminConfig() {
     ],
     rootPath: '/admin',
     branding: {
-      companyName: 'MathBack',
+      companyName: 'MathGenie',
       logo: false,
       softwareBrothers: false,
     },
@@ -121,10 +123,10 @@ async function getAdminConfig() {
       language: 'ru',
       translations: {
         labels: {
-          loginWelcome: 'Вход в админ-панель MathBack',
+          loginWelcome: 'Вход в админ-панель MathGenie',
         },
         messages: {
-          loginWelcome: 'Вход в админ-панель MathBack',
+          loginWelcome: 'Вход в админ-панель MathGenie',
         },
         resources: {
           User: { name: 'Пользователь', name_plural: 'Пользователи' },
@@ -142,4 +144,4 @@ async function getAdminConfig() {
   return { adminJs, AdminJSExpress };
 }
 
-module.exports = getAdminConfig;
+export { getAdminConfig };

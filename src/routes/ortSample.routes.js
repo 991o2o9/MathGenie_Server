@@ -143,21 +143,27 @@
 // Роуты для управления пробниками (OrtSample)
 // ...
 
-const express = require('express');
-const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const upload = multer({ dest: path.join(__dirname, '../../uploads') });
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const {
+import {
   createOrtSample,
   getOrtSamples,
   getOrtSample,
   updateOrtSample,
   deleteOrtSample,
-} = require('../controllers/ortSample.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+} from '../controllers/ortSample.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const router = express.Router();
+const upload = multer({ dest: path.join(__dirname, '../../uploads') });
 
 // Получить все пробники (можно фильтровать по topic)
 router.get('/', authMiddleware, getOrtSamples);
@@ -182,4 +188,4 @@ router.put(
 // Удалить пробник (ADMIN)
 router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteOrtSample);
 
-module.exports = router;
+export default router;

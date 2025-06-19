@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
   createTopic,
   getTopics,
   getTopic,
   updateTopic,
   deleteTopic,
-} = require('../controllers/topic.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+} from '../controllers/topic.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -162,4 +163,4 @@ router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteTopic);
  *         description: Недостаточно прав
  */
 
-module.exports = router;
+export default router;

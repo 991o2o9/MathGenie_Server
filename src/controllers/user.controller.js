@@ -1,8 +1,8 @@
 // Контроллер для управления пользователями
 // ...
 
-const User = require('../models/user.model');
-const { hashPassword } = require('../utils/bcrypt');
+import User from '../models/user.model.js';
+import { hashPassword } from '../utils/bcrypt.js';
 
 // Создать пользователя (ADMIN)
 async function createUser(req, res) {
@@ -51,10 +51,4 @@ async function deleteUser(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
-  createUser,
-  getUsers,
-  getUser,
-  updateUser,
-  deleteUser,
-};
+export { createUser, getUsers, getUser, updateUser, deleteUser };

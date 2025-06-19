@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
   createSubject,
   getSubjects,
   getSubject,
   updateSubject,
   deleteSubject,
-} = require('../controllers/subject.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+} from '../controllers/subject.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -149,4 +150,4 @@ router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateSubject);
 // Удалить предмет (ADMIN)
 router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteSubject);
 
-module.exports = router;
+export default router;

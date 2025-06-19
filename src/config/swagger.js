@@ -1,13 +1,13 @@
 // Конфиг для Swagger (swagger-jsdoc, swagger-ui-express)
 // ...
 
-const swaggerJSDoc = require('swagger-jsdoc');
+import swaggerJSDoc from 'swagger-jsdoc';
 
 const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'MathBack API',
+      title: 'MathGenie API',
       version: '1.0.0',
       description: 'Документация API образовательной платформы',
     },
@@ -27,4 +27,4 @@ const options = {
 
 const swaggerSpec = swaggerJSDoc(options);
 
-module.exports = swaggerSpec;
+export default swaggerSpec;

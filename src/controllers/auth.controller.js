@@ -1,9 +1,9 @@
 // Контроллер для аутентификации
 // ...
 
-const User = require('../models/user.model');
-const { comparePassword } = require('../utils/bcrypt');
-const { generateToken } = require('../utils/jwt');
+import User from '../models/user.model.js';
+import { comparePassword } from '../utils/bcrypt.js';
+import { generateToken } from '../utils/jwt.js';
 
 // POST /auth/login
 async function login(req, res) {
@@ -19,4 +19,4 @@ async function login(req, res) {
   });
 }
 
-module.exports = { login };
+export { login };

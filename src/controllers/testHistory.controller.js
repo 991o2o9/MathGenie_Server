@@ -1,7 +1,7 @@
 // Контроллер для истории прохождения тестов
 // ...
 
-const TestHistory = require('../models/testHistory.model');
+import TestHistory from '../models/testHistory.model.js';
 
 // Получить всю историю пользователя
 async function getTestHistories(req, res) {
@@ -44,7 +44,7 @@ async function deleteTestHistory(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
+export {
   getTestHistories,
   getTestHistory,
   createTestHistory,

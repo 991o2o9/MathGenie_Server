@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
   createUser,
   getUsers,
   getUser,
   updateUser,
   deleteUser,
-} = require('../controllers/user.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+} from '../controllers/user.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -160,4 +161,4 @@ router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateUser);
 // Удалить пользователя (ADMIN)
 router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteUser);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const testHistorySchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -14,4 +14,5 @@ const testHistorySchema = new mongoose.Schema({
   total: { type: Number, required: true },
 });
 
-module.exports = mongoose.model('TestHistory', testHistorySchema);
+const TestHistory = mongoose.model('TestHistory', testHistorySchema);
+export default TestHistory;

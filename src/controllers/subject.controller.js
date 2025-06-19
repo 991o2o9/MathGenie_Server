@@ -1,7 +1,7 @@
 // Контроллер для управления предметами
 // ...
 
-const Subject = require('../models/subject.model');
+import Subject from '../models/subject.model.js';
 
 // Создать предмет
 async function createSubject(req, res) {
@@ -46,10 +46,4 @@ async function deleteSubject(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-module.exports = {
-  createSubject,
-  getSubjects,
-  getSubject,
-  updateSubject,
-  deleteSubject,
-};
+export { createSubject, getSubjects, getSubject, updateSubject, deleteSubject };

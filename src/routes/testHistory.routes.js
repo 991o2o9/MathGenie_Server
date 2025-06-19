@@ -1,13 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
   getTestHistories,
   getTestHistory,
   createTestHistory,
   deleteTestHistory,
-} = require('../controllers/testHistory.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+} from '../controllers/testHistory.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -128,4 +129,4 @@ router.delete(
   deleteTestHistory
 );
 
-module.exports = router;
+export default router;

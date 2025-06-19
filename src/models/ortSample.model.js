@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ortSampleSchema = new mongoose.Schema({
   content: { type: String }, // либо текст, либо путь к файлу
@@ -7,4 +7,5 @@ const ortSampleSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('OrtSample', ortSampleSchema);
+const OrtSample = mongoose.model('OrtSample', ortSampleSchema);
+export default OrtSample;

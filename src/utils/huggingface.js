@@ -1,7 +1,7 @@
 // Утилита для обращения к HuggingFace API
 // ...
 
-const { InferenceClient } = require('@huggingface/inference');
+import { InferenceClient } from '@huggingface/inference';
 
 const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN;
 const MODEL = 'google/gemma-2-2b-it';
@@ -22,4 +22,4 @@ async function askHuggingFace(question) {
   return chatCompletion.choices[0].message.content;
 }
 
-module.exports = { askHuggingFace };
+export { askHuggingFace };

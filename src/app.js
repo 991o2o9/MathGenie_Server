@@ -14,6 +14,7 @@ import topicRoutes from './routes/topic.routes.js';
 import ortSampleRoutes from './routes/ortSample.routes.js';
 import testHistoryRoutes from './routes/testHistory.routes.js';
 import userRoutes from './routes/user.routes.js';
+import adviceRoutes from './routes/advice.routes.js';
 
 // Middleware
 import authMiddleware from './middlewares/auth.middleware.js';
@@ -46,6 +47,7 @@ app.use('/topics', topicRoutes);
 app.use('/ort-samples', ortSampleRoutes);
 app.use('/test-history', testHistoryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/advice', adviceRoutes);
 
 app.get('/protected', authMiddleware, (req, res) => {
   res.json({ message: 'Доступ разрешён', user: req.user });

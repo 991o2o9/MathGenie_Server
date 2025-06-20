@@ -10,6 +10,7 @@ import AiQuestion from '../models/aiQuestion.model.js';
 import Test from '../models/test.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { askHuggingFace } from '../utils/huggingface.js';
+import Advice from '../models/advice.model.js';
 
 async function getAdminConfig() {
   const { dark, light, noSidebar } = await import('@adminjs/themes');
@@ -241,6 +242,45 @@ async function getAdminConfig() {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
           },
+        },
+      },
+      {
+        resource: Advice,
+        options: {
+          navigation: { name: 'Users', icon: 'Idea' },
+          label: 'Advice',
+          properties: {
+            _id: { isVisible: false },
+            user: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            adviceText: {
+              type: 'textarea',
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['user', 'adviceText', 'createdAt'],
         },
       },
     ],

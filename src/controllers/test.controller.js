@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { askHuggingFace } from '../utils/huggingface.js';
 import TestHistory from '../models/testHistory.model.js';
 import Subsection from '../models/subsection.model.js';
+import { TestAnswer } from '../models/testHistory.model.js';
 
 // Генерация теста по топику и сложности
 async function generateTest(req, res) {
@@ -172,8 +173,20 @@ async function submitTest(req, res) {
   let score = 0;
   const correctAnswers = test.questions.map((q) => {
     const userAnswer = answers.find((a) => a.questionId === q.questionId);
-    if (userAnswer && userAnswer.selectedOptionId === q.correctOptionId) {
+    const isCorrect =
+      userAnswer && userAnswer.selectedOptionId === q.correctOptionId;
+    if (isCorrect) {
       score++;
+    }
+    // Сохраняем ответ пользователя
+    if (userAnswer) {
+      TestAnswer.create({
+        user: req.user._id,
+        test: test._id,
+        questionId: q.questionId,
+        selectedOptionId: userAnswer.selectedOptionId,
+        isCorrect: !!isCorrect,
+      });
     }
     return {
       questionId: q.questionId,
@@ -197,6 +210,7 @@ async function submitTest(req, res) {
       await TestHistory.create({
         user: req.user._id,
         subject: subjectId,
+        test: test._id,
         level,
         resultPercent,
         correct: score,

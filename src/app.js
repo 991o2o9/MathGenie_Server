@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-// Routes imports
+// Routes
 import authRoutes from './routes/auth.routes.js';
 import testRoutes from './routes/test.routes.js';
 import aiQuestionRoutes from './routes/aiQuestion.routes.js';
@@ -15,11 +15,11 @@ import ortSampleRoutes from './routes/ortSample.routes.js';
 import testHistoryRoutes from './routes/testHistory.routes.js';
 import userRoutes from './routes/user.routes.js';
 
-// Middleware imports
+// Middleware
 import authMiddleware from './middlewares/auth.middleware.js';
 import roleMiddleware from './middlewares/role.middleware.js';
 
-// Config imports
+// Config
 import { getAdminConfig } from './config/adminjs.js';
 import swaggerSpec from './config/swagger.js';
 import swaggerUi from 'swagger-ui-express';
@@ -47,7 +47,6 @@ app.use('/ort-samples', ortSampleRoutes);
 app.use('/test-history', testHistoryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Пример защищённого эндпоинта
 app.get('/protected', authMiddleware, (req, res) => {
   res.json({ message: 'Доступ разрешён', user: req.user });
 });
@@ -133,73 +132,106 @@ app.use('/users', userRoutes);
 // Список основных маршрутов API для фронта (HTML)
 app.get('/api', (req, res) => {
   const routes = [
-    {
-      path: '/auth/login',
-      method: 'POST',
-      description: 'Вход пользователя (логин)',
-    },
-    {
-      path: '/users',
-      method: 'GET/POST',
-      description: 'CRUD пользователей (ADMIN)',
-    },
-    { path: '/subjects', method: 'GET/POST', description: 'CRUD предметов' },
-    {
-      path: '/subsections',
-      method: 'GET/POST',
-      description: 'CRUD подразделов',
-    },
-    { path: '/topics', method: 'GET/POST', description: 'CRUD тем' },
-    {
-      path: '/ort-samples',
-      method: 'GET/POST',
-      description: 'CRUD пробников (файлы/текст)',
-    },
-    { path: '/test/pass', method: 'POST', description: 'Прохождение теста' },
-    {
-      path: '/test-history',
-      method: 'GET/POST',
-      description: 'История тестов пользователя',
-    },
-    { path: '/ai/ask', method: 'POST', description: 'Вопрос к ИИ' },
-    {
-      path: '/ai/top-questions',
-      method: 'GET',
-      description: 'Топ AI-вопросов',
-    },
     { path: '/api/docs', method: 'GET', description: 'Swagger-документация' },
     { path: '/admin', method: 'GET', description: 'Админ-панель (AdminJS)' },
   ];
+
   res.send(`
-    <html>
+    <html lang="ru">
       <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>MathBack API Routes</title>
         <style>
-          body { font-family: Arial, sans-serif; background: #f9f9f9; }
-          h1 { color: #2d3a4b; }
-          table { border-collapse: collapse; width: 80%; margin: 30px auto; background: #fff; box-shadow: 0 2px 8px #eee; }
-          th, td { border: 1px solid #ddd; padding: 10px 16px; text-align: left; }
-          th { background: #2d3a4b; color: #fff; }
-          tr:nth-child(even) { background: #f2f2f2; }
-          a { color: #2d3a4b; text-decoration: none; }
-          a:hover { text-decoration: underline; }
+          body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f7f9;
+            color: #333;
+          }
+          header {
+            background-color: #1e293b;
+            padding: 20px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+          h1 {
+            margin: 0;
+            font-size: 28px;
+          }
+          main {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+          }
+          th, td {
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 1px solid #eaeaea;
+          }
+          th {
+            background-color: #0f172a;
+            color: white;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+          }
+          tr:hover {
+            background-color: #f1f5f9;
+          }
+          a {
+            color: #2563eb;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+          footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #555;
+            font-size: 14px;
+          }
         </style>
       </head>
       <body>
-        <h1 style="text-align:center">MathBack API — Основные маршруты</h1>
-        <table>
-          <tr><th>Маршрут</th><th>Метод</th><th>Описание</th></tr>
-          ${routes
-            .map(
-              (r) =>
-                `<tr><td><a href="${r.path}">${r.path}</a></td><td>${r.method}</td><td>${r.description}</td></tr>`
-            )
-            .join('')}
-        </table>
-        <p style="text-align:center">Swagger: <a href="/api/docs">/api/docs</a> | Admin: <a href="/admin">/admin</a></p>
+        <header>
+          <h1>📘 MathGenie API — Основные маршруты</h1>
+        </header>
+        <main>
+          <table>
+            <thead>
+              <tr>
+                <th>Маршрут</th>
+                <th>Метод</th>
+                <th>Описание</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${routes
+                .map(
+                  (r) =>
+                    `<tr><td><a href="${r.path}">${r.path}</a></td><td>${r.method}</td><td>${r.description}</td></tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </main>
+        <footer>
+          Swagger: <a href="/api/docs">/api/docs</a> |
+          Admin: <a href="/admin">/admin</a>
+        </footer>
       </body>
     </html>
   `);
 });
-
 export default app;

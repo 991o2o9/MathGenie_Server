@@ -5,6 +5,7 @@ import { askHuggingFace } from '../utils/huggingface.js';
 import { formatDate } from '../utils/dateFormat.js';
 import Subsection from '../models/subsection.model.js';
 import Subject from '../models/subject.model.js';
+import Topic from '../models/topic.model.js';
 
 // Создать тему
 async function createTopic(req, res) {

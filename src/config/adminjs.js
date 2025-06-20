@@ -8,6 +8,7 @@ import Topic from '../models/topic.model.js';
 import OrtSample from '../models/ortSample.model.js';
 import TestHistory from '../models/testHistory.model.js';
 import AiQuestion from '../models/aiQuestion.model.js';
+import Test from '../models/test.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { askHuggingFace } from '../utils/huggingface.js';
 
@@ -209,6 +210,7 @@ async function getAdminConfig() {
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
+            file: { isVisible: false },
           },
         },
       },
@@ -228,6 +230,17 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'AI', icon: 'Bot' },
           label: 'AI-вопросы',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+          },
+        },
+      },
+      {
+        resource: Test,
+        options: {
+          navigation: { name: 'Тесты', icon: 'List' },
+          label: 'Тесты',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },

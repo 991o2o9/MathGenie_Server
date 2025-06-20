@@ -19,7 +19,6 @@ async function createOrtSample(req, res) {
   res.status(201).json({
     _id: ortSample._id,
     content: ortSample.content,
-    file: ortSample.file,
     topic: ortSample.topic,
     createdAt: formatDate(ortSample.createdAt),
   });
@@ -32,7 +31,6 @@ async function getOrtSamples(req, res) {
   const formatted = ortSamples.map((ortSample) => ({
     _id: ortSample._id,
     content: ortSample.content,
-    file: ortSample.file,
     topic:
       ortSample.topic && typeof ortSample.topic === 'object'
         ? {
@@ -53,7 +51,6 @@ async function getOrtSample(req, res) {
   res.json({
     _id: ortSample._id,
     content: ortSample.content,
-    file: ortSample.file,
     topic:
       ortSample.topic && typeof ortSample.topic === 'object'
         ? {

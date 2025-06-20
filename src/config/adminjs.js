@@ -9,6 +9,7 @@ import OrtSample from '../models/ortSample.model.js';
 import TestHistory from '../models/testHistory.model.js';
 import AiQuestion from '../models/aiQuestion.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
+import { askHuggingFace } from '../utils/huggingface.js';
 
 async function getAdminConfig() {
   const { dark, light, noSidebar } = await import('@adminjs/themes');
@@ -30,6 +31,7 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Пользователи', icon: 'User' },
           properties: {
+            _id: { isVisible: false },
             password: {
               isVisible: {
                 list: false,
@@ -40,6 +42,7 @@ async function getAdminConfig() {
               },
               type: 'password',
             },
+            createdAt: { isVisible: false },
           },
           listProperties: ['username', 'role', 'createdAt'],
           label: 'Пользователи',
@@ -75,6 +78,33 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Учебные материалы', icon: 'Book' },
           label: 'Предметы',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+            id: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          actions: {
+            new: {
+              before: async (request) => {
+                if (request.payload) {
+                  const Subject = (await import('../models/subject.model.js'))
+                    .default;
+                  const last = await Subject.findOne().sort({ id: -1 });
+                  const nextId = last && last.id ? last.id + 1 : 1;
+                  request.payload.id = nextId;
+                }
+                return request;
+              },
+            },
+          },
         },
       },
       {
@@ -82,6 +112,26 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Учебные материалы', icon: 'BookOpen' },
           label: 'Подразделы',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+            id: { isVisible: false },
+          },
+          actions: {
+            new: {
+              before: async (request) => {
+                if (request.payload) {
+                  const Subsection = (
+                    await import('../models/subsection.model.js')
+                  ).default;
+                  const last = await Subsection.findOne().sort({ id: -1 });
+                  const nextId = last && last.id ? last.id + 1 : 1;
+                  request.payload.id = nextId;
+                }
+                return request;
+              },
+            },
+          },
         },
       },
       {
@@ -89,6 +139,63 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Учебные материалы', icon: 'BookOpen' },
           label: 'Темы',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+            id: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            explanation: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          actions: {
+            new: {
+              before: async (request) => {
+                if (request.payload) {
+                  const Topic = (await import('../models/topic.model.js'))
+                    .default;
+                  const last = await Topic.findOne().sort({ id: -1 });
+                  let nextId = 1;
+                  if (last && typeof last.id === 'number') {
+                    nextId = last.id + 1;
+                  } else if (last && !isNaN(Number(last.id))) {
+                    nextId = Number(last.id) + 1;
+                  }
+                  request.payload.id = nextId;
+
+                  // Генерируем explanation, если оно не заполнено
+                  if (
+                    typeof request.payload.explanation !== 'string' ||
+                    request.payload.explanation.trim() === ''
+                  ) {
+                    const prompt = `Объясни тему по школьному предмету: "${request.payload.name}". Дай подробное объяснение с примерами и практическими применениями.`;
+                    try {
+                      request.payload.explanation = await askHuggingFace(
+                        prompt
+                      );
+                    } catch (e) {
+                      request.payload.explanation =
+                        'Ошибка генерации explanation';
+                    }
+                  }
+                }
+                return request;
+              },
+            },
+          },
         },
       },
       {
@@ -96,6 +203,10 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Пробники', icon: 'Document' },
           label: 'Пробники',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+          },
         },
       },
       {
@@ -103,6 +214,10 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Тесты', icon: 'List' },
           label: 'История тестов',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+          },
         },
       },
       {
@@ -110,6 +225,10 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'AI', icon: 'Bot' },
           label: 'AI-вопросы',
+          properties: {
+            _id: { isVisible: false },
+            createdAt: { isVisible: false },
+          },
         },
       },
     ],

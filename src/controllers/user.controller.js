@@ -3,6 +3,7 @@
 
 import User from '../models/user.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
+import { formatDate } from '../utils/dateFormat.js';
 
 // Создать пользователя (ADMIN)
 async function createUser(req, res) {
@@ -14,22 +15,36 @@ async function createUser(req, res) {
     return res.status(409).json({ message: 'Пользователь уже существует' });
   const hashed = await hashPassword(password);
   const user = await User.create({ username, password: hashed, role });
-  res
-    .status(201)
-    .json({ id: user._id, username: user.username, role: user.role });
+  res.status(201).json({
+    _id: user._id,
+    username: user.username,
+    role: user.role,
+    createdAt: formatDate(user.createdAt),
+  });
 }
 
 // Получить всех пользователей (ADMIN)
 async function getUsers(req, res) {
   const users = await User.find().select('-password');
-  res.json(users);
+  const formatted = users.map((user) => ({
+    _id: user._id,
+    username: user.username,
+    role: user.role,
+    createdAt: formatDate(user.createdAt),
+  }));
+  res.json(formatted);
 }
 
 // Получить одного пользователя (ADMIN)
 async function getUser(req, res) {
   const user = await User.findById(req.params.id).select('-password');
   if (!user) return res.status(404).json({ message: 'Не найдено' });
-  res.json(user);
+  res.json({
+    _id: user._id,
+    username: user.username,
+    role: user.role,
+    createdAt: user.createdAt,
+  });
 }
 
 // Обновить пользователя (ADMIN)
@@ -41,7 +56,12 @@ async function updateUser(req, res) {
     new: true,
   }).select('-password');
   if (!user) return res.status(404).json({ message: 'Не найдено' });
-  res.json(user);
+  res.json({
+    _id: user._id,
+    username: user.username,
+    role: user.role,
+    createdAt: formatDate(user.createdAt),
+  });
 }
 
 // Удалить пользователя (ADMIN)

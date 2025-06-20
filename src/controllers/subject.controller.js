@@ -2,6 +2,7 @@
 // ...
 
 import Subject from '../models/subject.model.js';
+import { formatDate } from '../utils/dateFormat.js';
 
 // Создать предмет
 async function createSubject(req, res) {
@@ -10,38 +11,68 @@ async function createSubject(req, res) {
   const exists = await Subject.findOne({ name });
   if (exists)
     return res.status(409).json({ message: 'Такой предмет уже есть' });
-  const subject = await Subject.create({ name });
-  res.status(201).json(subject);
+  // Найти максимальный id и увеличить на 1
+  const last = await Subject.findOne().sort({ id: -1 });
+  const nextId = last && last.id ? last.id + 1 : 1;
+  const subject = await Subject.create({ name, id: nextId });
+  const formattedSubject = {
+    id: subject.id,
+    _id: subject._id,
+    name: subject.name,
+    createdAt: formatDate(subject.createdAt),
+  };
+  res.status(201).json(formattedSubject);
 }
 
 // Получить все предметы
 async function getSubjects(req, res) {
   const subjects = await Subject.find();
-  res.json(subjects);
+  const formattedSubjects = subjects.map((subject) => ({
+    id: subject.id,
+    _id: subject._id,
+    name: subject.name,
+    createdAt: formatDate(subject.createdAt),
+  }));
+  res.json(formattedSubjects);
 }
 
 // Получить один предмет
 async function getSubject(req, res) {
-  const subject = await Subject.findById(req.params.id);
+  // Поиск по id (числовому)
+  const subject = await Subject.findOne({ id: Number(req.params.id) });
   if (!subject) return res.status(404).json({ message: 'Не найдено' });
-  res.json(subject);
+  const formattedSubject = {
+    id: subject.id,
+    _id: subject._id,
+    name: subject.name,
+    createdAt: formatDate(subject.createdAt),
+  };
+  res.json(formattedSubject);
 }
 
 // Обновить предмет
 async function updateSubject(req, res) {
   const { name } = req.body;
-  const subject = await Subject.findByIdAndUpdate(
-    req.params.id,
+  // Поиск и обновление по числовому id
+  const subject = await Subject.findOneAndUpdate(
+    { id: Number(req.params.id) },
     { name },
     { new: true }
   );
   if (!subject) return res.status(404).json({ message: 'Не найдено' });
-  res.json(subject);
+  const formattedSubject = {
+    id: subject.id,
+    _id: subject._id,
+    name: subject.name,
+    createdAt: formatDate(subject.createdAt),
+  };
+  res.json(formattedSubject);
 }
 
 // Удалить предмет
 async function deleteSubject(req, res) {
-  const subject = await Subject.findByIdAndDelete(req.params.id);
+  // Поиск и удаление по числовому id
+  const subject = await Subject.findOneAndDelete({ id: Number(req.params.id) });
   if (!subject) return res.status(404).json({ message: 'Не найдено' });
   res.json({ message: 'Удалено' });
 }

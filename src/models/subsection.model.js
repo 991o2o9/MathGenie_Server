@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const subsectionSchema = new mongoose.Schema({
+  id: { type: Number, unique: true },
   name: { type: String, required: true },
   subject: {
     type: mongoose.Schema.Types.ObjectId,

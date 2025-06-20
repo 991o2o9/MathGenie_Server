@@ -2,12 +2,21 @@
 // ...
 
 import AiQuestion from '../models/aiQuestion.model.js';
+import { formatDate } from '../utils/dateFormat.js';
 import { askHuggingFace } from '../utils/huggingface.js';
 
 // GET /ai/top-questions
 async function getTopQuestions(req, res) {
   const topQuestions = await AiQuestion.find().sort({ count: -1 }).limit(10);
-  res.json(topQuestions);
+  const formatted = topQuestions.map((q) => ({
+    _id: q._id,
+    question: q.question,
+    answer: q.answer,
+    user: q.user,
+    count: q.count,
+    createdAt: q.createdAt,
+  }));
+  res.json(formatted);
 }
 
 // POST /ai/ask
@@ -39,14 +48,43 @@ async function askAi(req, res) {
 // Получить все AI-вопросы (ADMIN)
 async function getAllAiQuestions(req, res) {
   const questions = await AiQuestion.find().populate('user');
-  res.json(questions);
+  const formatted = questions.map((q) => ({
+    _id: q._id,
+    question: q.question,
+    answer: q.answer,
+    user:
+      q.user && typeof q.user === 'object'
+        ? {
+            _id: q.user._id,
+            username: q.user.username,
+            role: q.user.role,
+          }
+        : q.user,
+    count: q.count,
+    createdAt: formatDate(q.createdAt),
+  }));
+  res.json(formatted);
 }
 
 // Получить один AI-вопрос (ADMIN)
 async function getAiQuestion(req, res) {
   const question = await AiQuestion.findById(req.params.id).populate('user');
   if (!question) return res.status(404).json({ message: 'Не найдено' });
-  res.json(question);
+  res.json({
+    _id: question._id,
+    question: question.question,
+    answer: question.answer,
+    user:
+      question.user && typeof question.user === 'object'
+        ? {
+            _id: question.user._id,
+            username: question.user.username,
+            role: question.user.role,
+          }
+        : question.user,
+    count: question.count,
+    createdAt: formatDate(question.createdAt),
+  });
 }
 
 // Удалить AI-вопрос (ADMIN)

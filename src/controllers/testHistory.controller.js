@@ -8,7 +8,23 @@ async function getTestHistories(req, res) {
   const histories = await TestHistory.find({ user: req.user._id }).populate(
     'subject'
   );
-  res.json(histories);
+  const formatted = histories.map((history) => ({
+    _id: history._id,
+    subject:
+      history.subject && typeof history.subject === 'object'
+        ? {
+            _id: history.subject._id,
+            id: history.subject.id,
+            name: history.subject.name,
+          }
+        : history.subject,
+    date: history.date,
+    level: history.level,
+    resultPercent: history.resultPercent,
+    correct: history.correct,
+    total: history.total,
+  }));
+  res.json(formatted);
 }
 
 // Получить одну запись истории
@@ -18,7 +34,22 @@ async function getTestHistory(req, res) {
     user: req.user._id,
   }).populate('subject');
   if (!history) return res.status(404).json({ message: 'Не найдено' });
-  res.json(history);
+  res.json({
+    _id: history._id,
+    subject:
+      history.subject && typeof history.subject === 'object'
+        ? {
+            _id: history.subject._id,
+            id: history.subject.id,
+            name: history.subject.name,
+          }
+        : history.subject,
+    date: history.date,
+    level: history.level,
+    resultPercent: history.resultPercent,
+    correct: history.correct,
+    total: history.total,
+  });
 }
 
 // Создать запись истории (используется при прохождении теста)
@@ -34,7 +65,15 @@ async function createTestHistory(req, res) {
     correct,
     total,
   });
-  res.status(201).json(history);
+  res.status(201).json({
+    _id: history._id,
+    subject: history.subject,
+    date: history.date,
+    level: history.level,
+    resultPercent: history.resultPercent,
+    correct: history.correct,
+    total: history.total,
+  });
 }
 
 // Удалить запись (только ADMIN)

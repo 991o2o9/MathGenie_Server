@@ -167,13 +167,16 @@ async function getAdminConfig() {
                 if (request.payload) {
                   const Topic = (await import('../models/topic.model.js'))
                     .default;
-                  const last = await Topic.findOne().sort({ id: -1 });
-                  let nextId = 1;
-                  if (last && typeof last.id === 'number') {
-                    nextId = last.id + 1;
-                  } else if (last && !isNaN(Number(last.id))) {
-                    nextId = Number(last.id) + 1;
-                  }
+                  // Получаем все id, фильтруем только числа
+                  const allTopics = await Topic.find({}, { id: 1 });
+                  const numericIds = allTopics
+                    .map((t) =>
+                      typeof t.id === 'number' ? t.id : parseInt(t.id, 10)
+                    )
+                    .filter((id) => !isNaN(id));
+                  const maxId =
+                    numericIds.length > 0 ? Math.max(...numericIds) : 0;
+                  const nextId = maxId + 1;
                   request.payload.id = nextId;
 
                   // Генерируем explanation, если оно не заполнено

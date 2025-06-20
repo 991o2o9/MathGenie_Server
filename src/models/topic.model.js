@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 
 const topicSchema = new mongoose.Schema({
+  id: { type: Number, unique: true, required: true },
   name: { type: String, required: true },
+  subtitle: { type: String },
   explanation: { type: String },
   subsection: {
     type: mongoose.Schema.Types.ObjectId,

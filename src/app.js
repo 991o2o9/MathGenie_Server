@@ -44,6 +44,7 @@ app.use('/subjects', subjectRoutes);
 app.use('/subsections', subsectionRoutes);
 app.use('/topics', topicRoutes);
 app.use('/ort-samples', ortSampleRoutes);
+app.use('/test-history', testHistoryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Пример защищённого эндпоинта

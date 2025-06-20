@@ -1,5 +1,4 @@
-// Конфиг для AdminJS
-// ...
+// AdminJS Config
 
 import User from '../models/user.model.js';
 import Subject from '../models/subject.model.js';
@@ -25,12 +24,12 @@ async function getAdminConfig() {
 
   const adminJs = new AdminJS({
     defaultTheme: dark.id,
-    availableThemes: [dark, light, noSidebar],
+    availableThemes: [dark, light],
     resources: [
       {
         resource: User,
         options: {
-          navigation: { name: 'Пользователи', icon: 'User' },
+          navigation: { name: 'Users', icon: 'User' },
           properties: {
             _id: { isVisible: false },
             password: {
@@ -46,7 +45,7 @@ async function getAdminConfig() {
             createdAt: { isVisible: false },
           },
           listProperties: ['username', 'role', 'createdAt'],
-          label: 'Пользователи',
+          label: 'Users',
           actions: {
             new: {
               before: async (request) => {
@@ -65,7 +64,6 @@ async function getAdminConfig() {
                     request.payload.password
                   );
                 } else if (request.payload) {
-                  // Если пароль не передан, не обновлять его
                   delete request.payload.password;
                 }
                 return request;
@@ -77,8 +75,8 @@ async function getAdminConfig() {
       {
         resource: Subject,
         options: {
-          navigation: { name: 'Учебные материалы', icon: 'Book' },
-          label: 'Предметы',
+          navigation: { name: 'Learning Materials', icon: 'Book' },
+          label: 'Subjects',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -111,8 +109,8 @@ async function getAdminConfig() {
       {
         resource: Subsection,
         options: {
-          navigation: { name: 'Учебные материалы', icon: 'BookOpen' },
-          label: 'Подразделы',
+          navigation: { name: 'Learning Materials', icon: 'BookOpen' },
+          label: 'Subsections',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -138,8 +136,8 @@ async function getAdminConfig() {
       {
         resource: Topic,
         options: {
-          navigation: { name: 'Учебные материалы', icon: 'BookOpen' },
-          label: 'Темы',
+          navigation: { name: 'Learning Materials', icon: 'BookOpen' },
+          label: 'Topics',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -168,7 +166,6 @@ async function getAdminConfig() {
                 if (request.payload) {
                   const Topic = (await import('../models/topic.model.js'))
                     .default;
-                  // Получаем все id, фильтруем только числа
                   const allTopics = await Topic.find({}, { id: 1 });
                   const numericIds = allTopics
                     .map((t) =>
@@ -180,19 +177,18 @@ async function getAdminConfig() {
                   const nextId = maxId + 1;
                   request.payload.id = nextId;
 
-                  // Генерируем explanation, если оно не заполнено
                   if (
                     typeof request.payload.explanation !== 'string' ||
                     request.payload.explanation.trim() === ''
                   ) {
-                    const prompt = `Объясни тему по школьному предмету: "${request.payload.name}". Дай подробное объяснение с примерами и практическими применениями.`;
+                    const prompt = `Explain the school subject topic: "${request.payload.name}". Provide a detailed explanation with examples and practical applications.`;
                     try {
                       request.payload.explanation = await askHuggingFace(
                         prompt
                       );
                     } catch (e) {
                       request.payload.explanation =
-                        'Ошибка генерации explanation';
+                        'Error generating explanation';
                     }
                   }
                 }
@@ -205,8 +201,8 @@ async function getAdminConfig() {
       {
         resource: OrtSample,
         options: {
-          navigation: { name: 'Пробники', icon: 'Document' },
-          label: 'Пробники',
+          navigation: { name: 'Practice Tests', icon: 'Document' },
+          label: 'Practice Tests',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -217,8 +213,8 @@ async function getAdminConfig() {
       {
         resource: TestHistory,
         options: {
-          navigation: { name: 'Тесты', icon: 'List' },
-          label: 'История тестов',
+          navigation: { name: 'Tests', icon: 'List' },
+          label: 'Test History',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -229,7 +225,7 @@ async function getAdminConfig() {
         resource: AiQuestion,
         options: {
           navigation: { name: 'AI', icon: 'Bot' },
-          label: 'AI-вопросы',
+          label: 'AI Questions',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -239,8 +235,8 @@ async function getAdminConfig() {
       {
         resource: Test,
         options: {
-          navigation: { name: 'Тесты', icon: 'List' },
-          label: 'Тесты',
+          navigation: { name: 'Tests', icon: 'List' },
+          label: 'Tests',
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
@@ -253,26 +249,6 @@ async function getAdminConfig() {
       companyName: 'MathGenie',
       logo: false,
       softwareBrothers: false,
-    },
-    locale: {
-      language: 'ru',
-      translations: {
-        labels: {
-          loginWelcome: 'Вход в админ-панель MathGenie',
-        },
-        messages: {
-          loginWelcome: 'Вход в админ-панель MathGenie',
-        },
-        resources: {
-          User: { name: 'Пользователь', name_plural: 'Пользователи' },
-          Subject: { name: 'Предмет', name_plural: 'Предметы' },
-          Subsection: { name: 'Подраздел', name_plural: 'Подразделы' },
-          Topic: { name: 'Тема', name_plural: 'Темы' },
-          OrtSample: { name: 'Пробник', name_plural: 'Пробники' },
-          TestHistory: { name: 'История теста', name_plural: 'История тестов' },
-          AiQuestion: { name: 'AI-вопрос', name_plural: 'AI-вопросы' },
-        },
-      },
     },
   });
 

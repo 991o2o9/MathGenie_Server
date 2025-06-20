@@ -5,6 +5,8 @@ import Topic from '../models/topic.model.js';
 import OrtSample from '../models/ortSample.model.js';
 import { v4 as uuidv4 } from 'uuid';
 import { askHuggingFace } from '../utils/huggingface.js';
+import TestHistory from '../models/testHistory.model.js';
+import Subsection from '../models/subsection.model.js';
 
 // Генерация теста по топику и сложности
 async function generateTest(req, res) {
@@ -155,7 +157,16 @@ async function getTest(req, res) {
 async function submitTest(req, res) {
   const { testId, answers } = req.body;
 
-  const test = await Test.findById(testId);
+  // Получаем тест с заполнением topic
+  const test = await Test.findById(testId).populate({
+    path: 'topic',
+    populate: {
+      path: 'subsection',
+      populate: {
+        path: 'subject',
+      },
+    },
+  });
   if (!test) return res.status(404).json({ message: 'Тест не найден' });
 
   let score = 0;
@@ -171,10 +182,46 @@ async function submitTest(req, res) {
     };
   });
 
+  let historySaved = false;
+  let historyError = null;
+  try {
+    if (
+      req.user &&
+      test.topic &&
+      test.topic.subsection &&
+      test.topic.subsection.subject
+    ) {
+      const subjectId = test.topic.subsection.subject._id;
+      const level = test.difficulty;
+      const resultPercent = Math.round((score / test.questions.length) * 100);
+      await TestHistory.create({
+        user: req.user._id,
+        subject: subjectId,
+        level,
+        resultPercent,
+        correct: score,
+        total: test.questions.length,
+      });
+      historySaved = true;
+    } else {
+      historyError =
+        'Не удалось определить пользователя или subject для истории.';
+      console.error('Ошибка сохранения истории теста:', historyError, {
+        user: req.user,
+        topic: test.topic,
+      });
+    }
+  } catch (err) {
+    historyError = err.message || 'Ошибка сохранения истории теста';
+    console.error('Ошибка сохранения истории теста:', err);
+  }
+
   res.json({
     score,
     total: test.questions.length,
     correctAnswers,
+    historySaved,
+    historyError,
   });
 }
 

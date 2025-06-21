@@ -11,6 +11,18 @@ export const saveProgress = async (req, res) => {
   }
 
   try {
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({ message: 'Тест не найден' });
+    }
+
+    const totalQuestions = test.questions.length;
+    const answeredCount = answers ? answers.length : 0;
+    const status =
+      totalQuestions > 0 && answeredCount >= totalQuestions
+        ? 'completed'
+        : 'in_progress';
+
     const progress = await TestProgress.findOneAndUpdate(
       { user: userId, test: testId },
       {
@@ -19,13 +31,13 @@ export const saveProgress = async (req, res) => {
         currentQuestionIndex,
         answers,
         timeLeft,
-        status: 'in_progress',
+        status,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: 'Error saving progress', error });
+    res.status(500).json({ message: 'Ошибка сохранения прогресса', error });
   }
 };
 
@@ -46,26 +58,34 @@ export const getUserProgress = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const response = progressList.map((p) => {
-      const totalQuestions = p.test.questions.length;
-      const progress =
-        totalQuestions > 0
-          ? Math.floor((p.answers.length / totalQuestions) * 100)
-          : 0;
+    const response = progressList
+      .map((p) => {
+        const totalQuestions = p.test.questions.length;
+        // Avoid division by zero and handle tests with no questions
+        if (totalQuestions === 0) {
+          return null;
+        }
+        const progress = Math.floor((p.answers.length / totalQuestions) * 100);
 
-      return {
-        testId: p.test._id,
-        title: p.test.title,
-        progress,
-        timeLeft: p.timeLeft,
-        currentQuestionIndex: p.currentQuestionIndex,
-        status: p.status,
-      };
-    });
+        // Filter out completed tests that might still have "in_progress" status
+        if (progress >= 100) {
+          return null;
+        }
+
+        return {
+          testId: p.test._id,
+          title: p.test.title,
+          progress,
+          timeLeft: p.timeLeft,
+          currentQuestionIndex: p.currentQuestionIndex,
+          status: p.status,
+        };
+      })
+      .filter(Boolean); // Removes null entries
 
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching user progress', error });
+    res.status(500).json({ message: 'Ошибка получения прогресса', error });
   }
 };
 

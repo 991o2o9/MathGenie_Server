@@ -116,6 +116,26 @@ async function getTopics(req, res) {
   res.json(formatted);
 }
 
+// Получить все темы
+async function getAllTopics(req, res) {
+  const topics = await Topic.find({}).populate('subsection');
+  const formatted = topics.map((topic) => ({
+    _id: topic._id,
+    id: topic.id,
+    name: topic.name,
+    subtitle: topic.subtitle,
+    explanation: topic.explanation,
+    createdAt: formatDate(topic.createdAt),
+    subsection: topic.subsection
+      ? {
+          _id: topic.subsection._id,
+          name: topic.subsection.name,
+        }
+      : null,
+  }));
+  res.json(formatted);
+}
+
 // Получить одну тему
 async function getTopic(req, res) {
   const topic = await Topic.findById(req.params.id).populate('subsection');
@@ -149,4 +169,11 @@ async function deleteTopic(req, res) {
   res.json({ message: 'Удалено' });
 }
 
-export { createTopic, getTopics, getTopic, updateTopic, deleteTopic };
+export {
+  createTopic,
+  getTopics,
+  getTopic,
+  updateTopic,
+  deleteTopic,
+  getAllTopics,
+};

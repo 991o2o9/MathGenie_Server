@@ -5,6 +5,7 @@ import {
   getTopic,
   updateTopic,
   deleteTopic,
+  getAllTopics,
 } from '../controllers/topic.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import roleMiddleware from '../middlewares/role.middleware.js';
@@ -38,6 +39,22 @@ const router = express.Router();
  *       401:
  *         description: Нет или неверный токен
  */
+
+/**
+ * @swagger
+ * /topics/all:
+ *   get:
+ *     summary: Получить все темы из всех подразделов
+ *     tags: [Topics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список всех тем
+ *       401:
+ *         description: Нет или неверный токен
+ */
+router.get('/all', authMiddleware, getAllTopics);
 
 // Получить все темы (можно фильтровать по subsection)
 router.get('/', authMiddleware, getTopics);

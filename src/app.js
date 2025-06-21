@@ -49,7 +49,7 @@ app.use('/ort-samples', ortSampleRoutes);
 app.use('/test-history', testHistoryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/advice', adviceRoutes);
-app.use('/api/test-progress', testProgressRoutes);
+app.use('/test-progress', testProgressRoutes);
 
 app.get('/protected', authMiddleware, (req, res) => {
   res.json({ message: 'Доступ разрешён', user: req.user });

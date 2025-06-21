@@ -20,7 +20,7 @@ router.use(authMiddleware);
 
 /**
  * @swagger
- * /api/test-progress/save:
+ * /test-progress/save:
  *   post:
  *     summary: Сохранить или обновить прогресс пользователя в тесте
  *     tags: [Прогресс Теста]
@@ -60,7 +60,7 @@ router.post('/save', saveProgress);
 
 /**
  * @swagger
- * /api/test-progress:
+ * /test-progress:
  *   get:
  *     summary: Получить все незавершённые тесты текущего пользователя
  *     tags: [Прогресс Теста]
@@ -95,7 +95,7 @@ router.get('/', getUserProgress);
 
 /**
  * @swagger
- * /api/test-progress/{testId}:
+ * /test-progress/{testId}:
  *   get:
  *     summary: Получить прогресс по конкретному тесту для текущего пользователя
  *     tags: [Прогресс Теста]
@@ -119,7 +119,7 @@ router.get('/:testId', getSpecificTestProgress);
 
 /**
  * @swagger
- * /api/test-progress/{testId}:
+ * /test-progress/{testId}:
  *   delete:
  *     summary: Удалить прогресс по тесту для текущего пользователя
  *     tags: [Прогресс Теста]

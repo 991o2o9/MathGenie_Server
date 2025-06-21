@@ -60,18 +60,12 @@ router.post('/save', saveProgress);
 
 /**
  * @swagger
- * /api/test-progress/{userId}:
+ * /api/test-progress:
  *   get:
- *     summary: Получить все незавершённые тесты пользователя
+ *     summary: Получить все незавершённые тесты текущего пользователя
  *     tags: [Прогресс Теста]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
  *     responses:
  *       200:
  *         description: Список незавершённых тестов
@@ -97,22 +91,17 @@ router.post('/save', saveProgress);
  *       500:
  *         description: Ошибка сервера
  */
-router.get('/:userId', getUserProgress);
+router.get('/', getUserProgress);
 
 /**
  * @swagger
- * /api/test-progress/{userId}/{testId}:
+ * /api/test-progress/{testId}:
  *   get:
- *     summary: Получить прогресс по конкретному тесту пользователя
+ *     summary: Получить прогресс по конкретному тесту для текущего пользователя
  *     tags: [Прогресс Теста]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
  *       - in: path
  *         name: testId
  *         required: true
@@ -126,22 +115,17 @@ router.get('/:userId', getUserProgress);
  *       500:
  *         description: Ошибка сервера
  */
-router.get('/:userId/:testId', getSpecificTestProgress);
+router.get('/:testId', getSpecificTestProgress);
 
 /**
  * @swagger
- * /api/test-progress/{userId}/{testId}:
+ * /api/test-progress/{testId}:
  *   delete:
- *     summary: Удалить прогресс по тесту пользователя
+ *     summary: Удалить прогресс по тесту для текущего пользователя
  *     tags: [Прогресс Теста]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
  *       - in: path
  *         name: testId
  *         required: true
@@ -155,6 +139,6 @@ router.get('/:userId/:testId', getSpecificTestProgress);
  *       500:
  *         description: Ошибка сервера
  */
-router.delete('/:userId/:testId', deleteProgress);
+router.delete('/:testId', deleteProgress);
 
 export default router;

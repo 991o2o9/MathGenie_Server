@@ -31,7 +31,7 @@ export const saveProgress = async (req, res) => {
 
 // Get all in-progress tests for a user
 export const getUserProgress = async (req, res) => {
-  const { userId } = req.params;
+  const userId = req.user.id;
 
   try {
     const progressList = await TestProgress.find({
@@ -71,7 +71,8 @@ export const getUserProgress = async (req, res) => {
 
 // Get progress for a specific test
 export const getSpecificTestProgress = async (req, res) => {
-  const { userId, testId } = req.params;
+  const { testId } = req.params;
+  const userId = req.user.id;
 
   try {
     const progress = await TestProgress.findOne({
@@ -90,7 +91,8 @@ export const getSpecificTestProgress = async (req, res) => {
 
 // Delete test progress
 export const deleteProgress = async (req, res) => {
-  const { userId, testId } = req.params;
+  const { testId } = req.params;
+  const userId = req.user.id;
 
   try {
     const result = await TestProgress.findOneAndDelete({

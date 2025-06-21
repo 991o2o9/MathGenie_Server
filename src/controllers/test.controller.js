@@ -244,6 +244,19 @@ D) [вариант D]
   res.status(201).json(test);
 }
 
+async function getAllTests(req, res) {
+  try {
+    const tests = await Test.find({}, 'title');
+    const formattedTests = tests.map((test) => ({
+      testId: test._id,
+      title: test.title,
+    }));
+    res.json(formattedTests);
+  } catch (error) {
+    res.status(500).json({ message: 'Ошибка при получении тестов', error });
+  }
+}
+
 // Получить тест по id (без правильных ответов)
 async function getTest(req, res) {
   const test = await Test.findById(req.params.id);
@@ -258,7 +271,9 @@ async function getTest(req, res) {
   res.json({
     testId: test._id,
     title: test.title,
-    questions,
+    topic: test.topic,
+    difficulty: test.difficulty,
+    questions: questions,
     timeLimit: test.timeLimit,
   });
 }
@@ -348,4 +363,4 @@ async function submitTest(req, res) {
   });
 }
 
-export { generateTest, getTest, submitTest, createTest };
+export { generateTest, getTest, submitTest, createTest, getAllTests };

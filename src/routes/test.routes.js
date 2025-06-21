@@ -197,6 +197,30 @@
  *                         type: string
  *       404:
  *         description: Тест не найден
+ *
+ * @swagger
+ * /test:
+ *   get:
+ *     summary: Получить все тесты (только id и title)
+ *     tags: [Test]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список тестов
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   testId:
+ *                     type: string
+ *                   title:
+ *                     type: string
+ *       500:
+ *         description: Ошибка сервера
  */
 // Роуты для управления тестами
 // ...
@@ -207,11 +231,13 @@ import {
   getTest,
   submitTest,
   createTest,
+  getAllTests,
 } from '../controllers/test.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
+router.get('/', authMiddleware, getAllTests);
 router.post('/', authMiddleware, createTest);
 // router.post('/pass', authMiddleware, passTest); // old, removed
 router.post('/generate', authMiddleware, generateTest);

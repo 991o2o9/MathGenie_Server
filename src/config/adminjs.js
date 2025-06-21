@@ -33,26 +33,44 @@ async function getAdminConfig() {
           navigation: { name: 'Users', icon: 'User' },
           properties: {
             _id: { isVisible: false },
+            id: { isVisible: false },
             password: {
               isVisible: {
                 list: false,
                 filter: false,
                 show: false,
-                edit: true,
-                create: true,
+                edit: false,
+                create: false,
               },
               type: 'password',
             },
+            plainPassword: {
+              isVisible: {
+                list: true,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              isTitle: false,
+            },
             createdAt: { isVisible: false },
           },
-          listProperties: ['username', 'role', 'createdAt'],
+          listProperties: ['username', 'role', 'plainPassword', 'createdAt'],
+          showProperties: ['username', 'role', 'plainPassword', 'createdAt'],
+          editProperties: ['username', 'role', 'plainPassword'],
+          filterProperties: ['username', 'role'],
           label: 'Users',
           actions: {
             new: {
               before: async (request) => {
-                if (request.payload && request.payload.password) {
+                if (request.payload && request.payload.plainPassword) {
+                  // Сохраняем исходный пароль
+                  const originalPassword = request.payload.plainPassword;
+                  // Хешируем пароль для поля password
                   request.payload.password = await hashPassword(
-                    request.payload.password
+                    originalPassword
                   );
                 }
                 return request;
@@ -60,9 +78,12 @@ async function getAdminConfig() {
             },
             edit: {
               before: async (request) => {
-                if (request.payload && request.payload.password) {
+                if (request.payload && request.payload.plainPassword) {
+                  // Сохраняем исходный пароль
+                  const originalPassword = request.payload.plainPassword;
+                  // Хешируем пароль для поля password
                   request.payload.password = await hashPassword(
-                    request.payload.password
+                    originalPassword
                   );
                 } else if (request.payload) {
                   delete request.payload.password;

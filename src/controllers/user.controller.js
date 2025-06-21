@@ -14,7 +14,12 @@ async function createUser(req, res) {
   if (exists)
     return res.status(409).json({ message: 'Пользователь уже существует' });
   const hashed = await hashPassword(password);
-  const user = await User.create({ username, password: hashed, role });
+  const user = await User.create({
+    username,
+    password: hashed,
+    plainPassword: password, // Сохраняем исходный пароль
+    role,
+  });
   res.status(201).json({
     _id: user._id,
     username: user.username,
@@ -30,6 +35,7 @@ async function getUsers(req, res) {
     _id: user._id,
     username: user.username,
     role: user.role,
+    plainPassword: user.plainPassword, // Включаем исходный пароль для админа
     createdAt: formatDate(user.createdAt),
   }));
   res.json(formatted);
@@ -43,6 +49,7 @@ async function getUser(req, res) {
     _id: user._id,
     username: user.username,
     role: user.role,
+    plainPassword: user.plainPassword, // Включаем исходный пароль для админа
     createdAt: user.createdAt,
   });
 }
@@ -51,7 +58,10 @@ async function getUser(req, res) {
 async function updateUser(req, res) {
   const { username, password, role } = req.body;
   const update = { username, role };
-  if (password) update.password = await hashPassword(password);
+  if (password) {
+    update.password = await hashPassword(password);
+    update.plainPassword = password; // Обновляем исходный пароль
+  }
   const user = await User.findByIdAndUpdate(req.params.id, update, {
     new: true,
   }).select('-password');
@@ -60,6 +70,7 @@ async function updateUser(req, res) {
     _id: user._id,
     username: user.username,
     role: user.role,
+    plainPassword: user.plainPassword, // Включаем исходный пароль для админа
     createdAt: formatDate(user.createdAt),
   });
 }

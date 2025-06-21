@@ -246,14 +246,21 @@ D) [вариант D]
 
 async function getAllTests(req, res) {
   try {
-    const tests = await Test.find({}, 'title');
+    const tests = await Test.find(
+      {},
+      'title difficulty questions timeLimit'
+    ).populate('topic', 'name');
     const formattedTests = tests.map((test) => ({
       testId: test._id,
       title: test.title,
+      topic: test.topic,
+      difficulty: test.difficulty,
+      questionCount: test.questions.length,
+      timeLimit: test.timeLimit,
     }));
     res.json(formattedTests);
   } catch (error) {
-    res.status(500).json({ message: 'Ошибка при получении тестов', error });
+    res.status(500).json({ message: 'Ошибка сервера' });
   }
 }
 

@@ -206,11 +206,13 @@ import {
   generateTest,
   getTest,
   submitTest,
+  createTest,
 } from '../controllers/test.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
+router.post('/', authMiddleware, createTest);
 // router.post('/pass', authMiddleware, passTest); // old, removed
 router.post('/generate', authMiddleware, generateTest);
 router.get('/:id', authMiddleware, getTest);

@@ -223,7 +223,7 @@ async function getAdminConfig() {
       {
         resource: OrtSample,
         options: {
-          navigation: { name: 'Practice Tests', icon: 'Document' },
+          navigation: { name: 'Tests', icon: 'Clipboard' },
           label: 'Practice Tests',
           properties: {
             _id: { isVisible: false },
@@ -246,7 +246,7 @@ async function getAdminConfig() {
       {
         resource: AiQuestion,
         options: {
-          navigation: { name: 'AI', icon: 'Bot' },
+          navigation: { name: 'AI', icon: 'Sparkles' },
           label: 'AI Questions',
           properties: {
             _id: { isVisible: false },
@@ -257,19 +257,156 @@ async function getAdminConfig() {
       {
         resource: Test,
         options: {
-          navigation: { name: 'Tests', icon: 'List' },
-          label: 'Tests',
+          navigation: { name: 'Tests', icon: 'Test' },
           properties: {
             _id: { isVisible: false },
-            createdAt: { isVisible: false },
+            createdAt: {
+              isVisible: {
+                list: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            timeLimit: {
+              isVisible: {
+                list: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            questions: {
+              isVisible: {
+                list: false,
+                show: true,
+                edit: true,
+                create: false,
+              },
+            },
+          },
+          actions: {
+            new: {
+              before: async (request) => {
+                const { payload } = request;
+                const {
+                  difficulty,
+                  topic: topicId,
+                  questions,
+                  title,
+                } = payload;
+
+                if (!difficulty || !topicId || !title) return request;
+
+                const difficultySettings = {
+                  начальный: { questions: 20, timeLimit: 1800 },
+                  средний: { questions: 30, timeLimit: 2700 },
+                  продвинутый: { questions: 40, timeLimit: 3600 },
+                };
+                const setting = difficultySettings[difficulty];
+
+                if (!setting) return request;
+
+                payload.timeLimit = setting.timeLimit;
+
+                if (questions && questions.length > 0) return request;
+
+                const topic = await Topic.findById(topicId);
+                if (!topic) return request;
+
+                const ortSample = await OrtSample.findOne({ topic: topicId });
+                const ortSampleText =
+                  ortSample && ortSample.content ? ortSample.content : '';
+                const numQuestions = setting.questions;
+
+                const prompt = `Внимание: отвечай только на русском языке.
+
+Ты — опытный преподаватель, готовящий учеников к ОРТ (Общее Республиканское Тестирование) в Кыргызстане.
+
+Вот учебный материал и примеры по теме "${topic.name}":
+${ortSampleText}
+
+Сгенерируй ${numQuestions} реалистичных тестовых вопросов по этой теме для уровня "${difficulty}".
+
+Для каждого вопроса:
+- Укажи текст вопроса.
+- Дай 4 варианта ответа (A, B, C, D).
+- Укажи правильный ответ (например: Ответ: B).
+- Дай краткое объяснение (1-2 предложения), почему этот ответ верный или как решать.
+
+Формат:
+Вопрос 1. [текст]
+A) [вариант A]
+B) [вариант B]
+C) [вариант C]
+D) [вариант D]
+Ответ: [A/B/C/D]
+Объяснение: [краткое объяснение]
+
+И так далее до ${numQuestions} вопросов. Не добавляй лишних пояснений.`;
+
+                try {
+                  const aiResponse = await askHuggingFace(prompt);
+                  const questionsRaw = aiResponse
+                    .split(/Вопрос \d+\./)
+                    .filter(Boolean);
+
+                  const parsedQuestions = questionsRaw
+                    .map((q, idx) => {
+                      const [mainPart, explanationPart] =
+                        q.split('Объяснение:');
+                      if (!mainPart) return null;
+
+                      const [textAndOptions, answerLine] =
+                        mainPart.split('Ответ:');
+                      if (!textAndOptions || !answerLine) return null;
+
+                      const [text, ...optionsRaw] = textAndOptions
+                        .trim()
+                        .split(/[A-D]\)/);
+                      if (!text) return null;
+
+                      const options = optionsRaw
+                        .map((opt, i) => ({
+                          optionId: String.fromCharCode(97 + i),
+                          text: opt.trim(),
+                        }))
+                        .filter((o) => o.text);
+
+                      const match = answerLine.match(/[A-D]/);
+                      const correctOptionId = match
+                        ? match[0].toLowerCase()
+                        : null;
+
+                      if (!correctOptionId || options.length < 4) return null;
+
+                      return {
+                        questionId: `q${idx + 1}`,
+                        text: text.trim(),
+                        options,
+                        correctOptionId,
+                        explanation: explanationPart
+                          ? explanationPart.trim()
+                          : '',
+                      };
+                    })
+                    .filter(Boolean);
+
+                  payload.questions = parsedQuestions.slice(0, numQuestions);
+                } catch (e) {
+                  console.error('Ошибка при генерации вопросов в AdminJS:', e);
+                }
+                return request;
+              },
+            },
           },
         },
       },
       {
         resource: Advice,
         options: {
-          navigation: { name: 'Users', icon: 'Idea' },
-          label: 'Advice',
+          navigation: { name: 'Advice for users', icon: 'LightBulb' },
+          label: 'Advice for users',
           properties: {
             _id: { isVisible: false },
             user: {

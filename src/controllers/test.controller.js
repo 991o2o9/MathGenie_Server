@@ -8,6 +8,7 @@ import { askHuggingFace } from '../utils/huggingface.js';
 import TestHistory from '../models/testHistory.model.js';
 import Subsection from '../models/subsection.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
+import TestProgress from '../models/testProgress.model.js';
 
 // Генерация теста по топику и сложности
 async function generateTest(req, res) {
@@ -288,6 +289,7 @@ async function getTest(req, res) {
 // Проверка теста
 async function submitTest(req, res) {
   const { testId, answers } = req.body;
+  const userId = req.user.id;
 
   // Получаем тест с заполнением topic
   const test = await Test.findById(testId).populate({
@@ -348,6 +350,9 @@ async function submitTest(req, res) {
         total: test.questions.length,
       });
       historySaved = true;
+
+      // После успешной сдачи удаляем прогресс
+      await TestProgress.findOneAndDelete({ user: userId, test: testId });
     } else {
       historyError =
         'Не удалось определить пользователя или subject для истории.';

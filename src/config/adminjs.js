@@ -8,6 +8,7 @@ import OrtSample from '../models/ortSample.model.js';
 import TestHistory from '../models/testHistory.model.js';
 import AiQuestion from '../models/aiQuestion.model.js';
 import Test from '../models/test.model.js';
+import TestProgress from '../models/testProgress.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { askHuggingFace } from '../utils/huggingface.js';
 import Advice from '../models/advice.model.js';
@@ -240,6 +241,37 @@ async function getAdminConfig() {
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
+          },
+        },
+      },
+      {
+        resource: TestProgress,
+        options: {
+          navigation: { name: 'Tests', icon: 'Clock' },
+          label: 'Test Progress',
+          listProperties: [
+            'user',
+            'test',
+            'status',
+            'currentQuestionIndex',
+            'timeLeft',
+            'updatedAt',
+          ],
+          showProperties: [
+            'user',
+            'test',
+            'status',
+            'currentQuestionIndex',
+            'timeLeft',
+            'answers',
+            'createdAt',
+            'updatedAt',
+          ],
+          editProperties: [], // Make it read-only
+          actions: {
+            new: { isAccessible: false },
+            edit: { isAccessible: false },
+            delete: { isAccessible: true },
           },
         },
       },

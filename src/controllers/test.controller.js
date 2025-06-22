@@ -10,6 +10,7 @@ import Subsection from '../models/subsection.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
 import TestProgress from '../models/testProgress.model.js';
 import { generateAndSaveAdviceForTest } from './advice.controller.js';
+import { formatDate } from '../utils/dateFormat.js';
 
 async function generateTest(req, res) {
   const { topicId, difficulty } = req.body;
@@ -393,6 +394,67 @@ async function getTest(req, res) {
   });
 }
 
+// Получить ответы и объяснения по ID теста
+async function getTestAnswers(req, res) {
+  try {
+    const { testId } = req.params;
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Пользователь не авторизован' });
+    }
+
+    // Находим тест с полной информацией
+    const test = await Test.findById(testId).populate({
+      path: 'topic',
+      populate: {
+        path: 'subsection',
+        populate: {
+          path: 'subject',
+        },
+      },
+    });
+
+    if (!test) {
+      return res.status(404).json({ message: 'Тест не найден' });
+    }
+
+    // Получаем ответы пользователя на этот тест
+    const userAnswers = await TestAnswer.find({
+      user: req.user._id,
+      test: testId,
+    });
+
+    // Формируем ответ с вопросами, правильными ответами и ответами пользователя
+    const answersWithExplanations = test.questions.map((question) => {
+      const userAnswer = userAnswers.find(
+        (answer) => answer.questionId === question.questionId
+      );
+
+      return {
+        questionId: question.questionId,
+        questionText: question.text,
+        options: question.options,
+        correctOptionId: question.correctOptionId,
+        selectedOptionId: userAnswer ? userAnswer.selectedOptionId : null,
+        isCorrect: userAnswer ? userAnswer.isCorrect : false,
+        explanation: question.explanation,
+      };
+    });
+
+    res.json({
+      testId: test._id,
+      title: test.title,
+      difficulty: test.difficulty,
+      totalQuestions: test.questions.length,
+      subject: test.topic?.subsection?.subject?.name || 'Неизвестный предмет',
+      answers: answersWithExplanations,
+    });
+  } catch (error) {
+    console.error('Ошибка получения ответов на тест:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+}
+
 // Проверка теста
 async function submitTest(req, res) {
   const { testId, answers, durationSeconds } = req.body;
@@ -489,4 +551,5 @@ export {
   getAllTests,
   getUserTests,
   getUserTestsByAdmin,
+  getTestAnswers,
 };

@@ -296,6 +296,71 @@
  *         description: Пользователь не найден
  *       500:
  *         description: Ошибка сервера
+ *
+ * @swagger
+ * /test/answers/{testId}:
+ *   get:
+ *     summary: Получить ответы и объяснения по ID теста
+ *     tags: [Test]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: testId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID теста
+ *     responses:
+ *       200:
+ *         description: Ответы и объяснения теста
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 testId:
+ *                   type: string
+ *                 title:
+ *                   type: string
+ *                 difficulty:
+ *                   type: string
+ *                 totalQuestions:
+ *                   type: integer
+ *                 subject:
+ *                   type: string
+ *                 answers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       questionId:
+ *                         type: string
+ *                       questionText:
+ *                         type: string
+ *                       options:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             optionId:
+ *                               type: string
+ *                             text:
+ *                               type: string
+ *                       correctOptionId:
+ *                         type: string
+ *                       selectedOptionId:
+ *                         type: string
+ *                       isCorrect:
+ *                         type: boolean
+ *                       explanation:
+ *                         type: string
+ *       401:
+ *         description: Не авторизован
+ *       404:
+ *         description: Тест не найден
+ *       500:
+ *         description: Ошибка сервера
  */
 // Роуты для управления тестами
 // ...
@@ -309,6 +374,7 @@ import {
   getAllTests,
   getUserTests,
   getUserTestsByAdmin,
+  getTestAnswers,
 } from '../controllers/test.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import roleMiddleware from '../middlewares/role.middleware.js';
@@ -328,5 +394,8 @@ router.post('/', authMiddleware, createTest);
 router.post('/generate', authMiddleware, generateTest);
 router.get('/:id', authMiddleware, getTest);
 router.post('/submit', authMiddleware, submitTest);
+
+// Получить ответы и объяснения по ID теста
+router.get('/answers/:testId', authMiddleware, getTestAnswers);
 
 export default router;

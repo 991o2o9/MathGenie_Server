@@ -10,7 +10,6 @@ import Subsection from '../models/subsection.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
 import TestProgress from '../models/testProgress.model.js';
 
-// Генерация теста по топику и сложности
 async function generateTest(req, res) {
   const { topicId, difficulty } = req.body;
   if (!topicId || !difficulty) {
@@ -119,6 +118,7 @@ D) [вариант D]
     difficulty,
     questions: selectedQuestions,
     timeLimit,
+    createdBy: req.user._id,
   });
 
   const questionsForUser = selectedQuestions.map((q) => ({
@@ -240,6 +240,7 @@ D) [вариант D]
     difficulty,
     questions: finalQuestions,
     timeLimit,
+    createdBy: req.user._id,
   });
 
   res.status(201).json(test);
@@ -247,10 +248,60 @@ D) [вариант D]
 
 async function getAllTests(req, res) {
   try {
+    let query = {};
+
+    // Если пользователь не админ, показываем только тесты админов и его собственные
+    if (req.user.role !== 'ADMIN') {
+      query = {
+        $or: [
+          { createdBy: { $in: await getAdminUserIds() } }, // Тесты админов
+        ],
+      };
+    }
+
     const tests = await Test.find(
-      {},
+      query,
+      'title difficulty questions timeLimit createdBy'
+    )
+      .populate('topic', 'name')
+      .populate('createdBy', 'username role');
+
+    const formattedTests = tests.map((test) => ({
+      testId: test._id,
+      title: test.title,
+      topic: test.topic,
+      difficulty: test.difficulty,
+      questionCount: test.questions.length,
+      timeLimit: test.timeLimit,
+      createdBy: {
+        username: test.createdBy.username,
+        role: test.createdBy.role,
+      },
+    }));
+    res.json(formattedTests);
+  } catch (error) {
+    console.error('Ошибка при получении тестов:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+}
+
+// Вспомогательная функция для получения ID всех админов
+async function getAdminUserIds() {
+  const User = (await import('../models/user.model.js')).default;
+  const admins = await User.find({ role: 'ADMIN' }, '_id');
+  return admins.map((admin) => admin._id);
+}
+
+// Получить тесты текущего пользователя
+async function getUserTests(req, res) {
+  try {
+    const userId = req.user._id;
+
+    const tests = await Test.find(
+      { createdBy: userId },
       'title difficulty questions timeLimit'
     ).populate('topic', 'name');
+
     const formattedTests = tests.map((test) => ({
       testId: test._id,
       title: test.title,
@@ -259,16 +310,67 @@ async function getAllTests(req, res) {
       questionCount: test.questions.length,
       timeLimit: test.timeLimit,
     }));
+
     res.json(formattedTests);
   } catch (error) {
+    console.error('Ошибка при получении тестов пользователя:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+}
+
+// Получить тесты конкретного пользователя (только для админов)
+async function getUserTestsByAdmin(req, res) {
+  try {
+    const userId = req.params.userId;
+
+    // Проверяем, что пользователь существует
+    const User = (await import('../models/user.model.js')).default;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    const tests = await Test.find(
+      { createdBy: userId },
+      'title difficulty questions timeLimit'
+    ).populate('topic', 'name');
+
+    const formattedTests = tests.map((test) => ({
+      testId: test._id,
+      title: test.title,
+      topic: test.topic,
+      difficulty: test.difficulty,
+      questionCount: test.questions.length,
+      timeLimit: test.timeLimit,
+    }));
+
+    res.json(formattedTests);
+  } catch (error) {
+    console.error('Ошибка при получении тестов пользователя админом:', error);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 }
 
 // Получить тест по id (без правильных ответов)
 async function getTest(req, res) {
-  const test = await Test.findById(req.params.id);
+  const test = await Test.findById(req.params.id).populate(
+    'createdBy',
+    'username role'
+  );
   if (!test) return res.status(404).json({ message: 'Тест не найден' });
+
+  // Проверяем права доступа
+  if (
+    req.user.role !== 'ADMIN' &&
+    test.createdBy._id.toString() !== req.user._id.toString()
+  ) {
+    // Проверяем, является ли создатель теста админом
+    if (test.createdBy.role !== 'ADMIN') {
+      return res
+        .status(403)
+        .json({ message: 'Нет прав для просмотра этого теста' });
+    }
+  }
 
   const questions = test.questions.map((q) => ({
     questionId: q.questionId,
@@ -283,6 +385,10 @@ async function getTest(req, res) {
     difficulty: test.difficulty,
     questions: questions,
     timeLimit: test.timeLimit,
+    createdBy: {
+      username: test.createdBy.username,
+      role: test.createdBy.role,
+    },
   });
 }
 
@@ -375,4 +481,12 @@ async function submitTest(req, res) {
   });
 }
 
-export { generateTest, getTest, submitTest, createTest, getAllTests };
+export {
+  generateTest,
+  getTest,
+  submitTest,
+  createTest,
+  getAllTests,
+  getUserTests,
+  getUserTestsByAdmin,
+};

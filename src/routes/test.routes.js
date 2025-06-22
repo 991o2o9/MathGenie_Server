@@ -201,7 +201,7 @@
  * @swagger
  * /test:
  *   get:
- *     summary: Получить все тесты (только id и title)
+ *     summary: Получить все доступные тесты (только id и title)
  *     tags: [Test]
  *     security:
  *       - bearerAuth: []
@@ -221,6 +221,81 @@
  *                     type: string
  *       500:
  *         description: Ошибка сервера
+ *
+ * @swagger
+ * /test/user:
+ *   get:
+ *     summary: Получить тесты текущего пользователя
+ *     tags: [Test]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список тестов текущего пользователя
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   testId:
+ *                     type: string
+ *                   title:
+ *                     type: string
+ *                   topic:
+ *                     type: object
+ *                   difficulty:
+ *                     type: string
+ *                   questionCount:
+ *                     type: integer
+ *                   timeLimit:
+ *                     type: integer
+ *       500:
+ *         description: Ошибка сервера
+ *
+ * @swagger
+ * /test/user/{userId}:
+ *   get:
+ *     summary: Получить тесты конкретного пользователя (только для админов)
+ *     tags: [Test]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID пользователя
+ *     responses:
+ *       200:
+ *         description: Список тестов пользователя
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   testId:
+ *                     type: string
+ *                   title:
+ *                     type: string
+ *                   topic:
+ *                     type: object
+ *                   difficulty:
+ *                     type: string
+ *                   questionCount:
+ *                     type: integer
+ *                   timeLimit:
+ *                     type: integer
+ *       403:
+ *         description: Недостаточно прав (только для админов)
+ *       404:
+ *         description: Пользователь не найден
+ *       500:
+ *         description: Ошибка сервера
  */
 // Роуты для управления тестами
 // ...
@@ -232,12 +307,22 @@ import {
   submitTest,
   createTest,
   getAllTests,
+  getUserTests,
+  getUserTestsByAdmin,
 } from '../controllers/test.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import roleMiddleware from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
 router.get('/', authMiddleware, getAllTests);
+router.get('/user', authMiddleware, getUserTests);
+router.get(
+  '/user/:userId',
+  authMiddleware,
+  roleMiddleware('ADMIN'),
+  getUserTestsByAdmin
+);
 router.post('/', authMiddleware, createTest);
 // router.post('/pass', authMiddleware, passTest); // old, removed
 router.post('/generate', authMiddleware, generateTest);

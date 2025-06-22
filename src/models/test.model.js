@@ -23,6 +23,11 @@ const testSchema = new mongoose.Schema({
   },
   questions: [questionSchema],
   timeLimit: { type: Number, required: true }, // seconds
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

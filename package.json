@@ -8,7 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "migrate": "node src/utils/migrateUsers.js"
+    "migrate": "node src/utils/migrateUsers.js",
+    "migrate-tests": "node src/utils/migrateTests.js",
+    "test-permissions": "node src/utils/testPermissions.js"
   },
   "keywords": [],
   "author": "",

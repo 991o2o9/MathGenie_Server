@@ -6,7 +6,7 @@ import { formatDate } from '../utils/dateFormat.js';
 
 // Создать предмет
 async function createSubject(req, res) {
-  const { name } = req.body;
+  const { name, subtitle } = req.body;
   if (!name) return res.status(400).json({ message: 'Название обязательно' });
   const exists = await Subject.findOne({ name });
   if (exists)
@@ -14,11 +14,12 @@ async function createSubject(req, res) {
   // Найти максимальный id и увеличить на 1
   const last = await Subject.findOne().sort({ id: -1 });
   const nextId = last && last.id ? last.id + 1 : 1;
-  const subject = await Subject.create({ name, id: nextId });
+  const subject = await Subject.create({ name, subtitle, id: nextId });
   const formattedSubject = {
     id: subject.id,
     _id: subject._id,
     name: subject.name,
+    subtitle: subject.subtitle,
     createdAt: formatDate(subject.createdAt),
   };
   res.status(201).json(formattedSubject);
@@ -31,6 +32,7 @@ async function getSubjects(req, res) {
     id: subject.id,
     _id: subject._id,
     name: subject.name,
+    subtitle: subject.subtitle,
     createdAt: formatDate(subject.createdAt),
   }));
   res.json(formattedSubjects);
@@ -45,6 +47,7 @@ async function getSubject(req, res) {
     id: subject.id,
     _id: subject._id,
     name: subject.name,
+    subtitle: subject.subtitle,
     createdAt: formatDate(subject.createdAt),
   };
   res.json(formattedSubject);
@@ -52,11 +55,11 @@ async function getSubject(req, res) {
 
 // Обновить предмет
 async function updateSubject(req, res) {
-  const { name } = req.body;
+  const { name, subtitle } = req.body;
   // Поиск и обновление по числовому id
   const subject = await Subject.findOneAndUpdate(
     { id: Number(req.params.id) },
-    { name },
+    { name, subtitle },
     { new: true }
   );
   if (!subject) return res.status(404).json({ message: 'Не найдено' });
@@ -64,6 +67,7 @@ async function updateSubject(req, res) {
     id: subject.id,
     _id: subject._id,
     name: subject.name,
+    subtitle: subject.subtitle,
     createdAt: formatDate(subject.createdAt),
   };
   res.json(formattedSubject);

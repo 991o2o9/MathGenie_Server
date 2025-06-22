@@ -100,6 +100,9 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Learning Materials', icon: 'Book' },
           label: 'Subjects',
+          listProperties: ['id', 'name', 'subtitle'],
+          showProperties: ['id', 'name', 'subtitle', 'createdAt'],
+          editProperties: ['name', 'subtitle'],
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },

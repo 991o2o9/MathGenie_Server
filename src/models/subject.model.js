@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const subjectSchema = new mongoose.Schema({
   id: { type: Number, unique: true, required: true },
   name: { type: String, required: true, unique: true },
+  subtitle: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

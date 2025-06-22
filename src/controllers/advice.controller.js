@@ -3,78 +3,92 @@ import TestHistory, { TestAnswer } from '../models/testHistory.model.js';
 import { getAdviceFromHuggingFace } from '../utils/huggingface.js';
 import Subject from '../models/subject.model.js';
 import Test from '../models/test.model.js';
-import { formatDate } from '../utils/dateFormat.js';
+import { formatDate, formatDateISO } from '../utils/dateFormat.js';
 
-// POST генерирует и сохраняет совет
-export const generateAdvice = async (req, res) => {
+// ** Эта функция будет вызываться после прохождения теста **
+export const generateAndSaveAdviceForTest = async (
+  userId,
+  latestTestHistory
+) => {
   try {
-    const userId = req.user ? req.user._id : req.body.userId;
-    if (!userId) {
-      return res.status(400).json({ message: 'User ID is required' });
+    if (!userId || !latestTestHistory) {
+      console.error(
+        'generateAndSaveAdviceForTest: Missing userId or latestTestHistory'
+      );
+      return;
     }
 
-    // последние результаты теста
-    const lastTest = await TestHistory.findOne({ user: userId }).sort({
-      date: -1,
-    });
-    if (!lastTest) {
-      return res
-        .status(404)
-        .json({ message: 'No test results found for user' });
-    }
+    // 1. Получаем историю последних 5 тестов для анализа динамики
+    const allHistories = await TestHistory.find({ user: userId })
+      .sort({ date: -1 })
+      .limit(5)
+      .populate('subject'); // Загружаем предмет для получения названия
 
-    // Получаем название предмета
-    let subjectName = '';
-    if (lastTest.subject) {
-      const subject = await Subject.findById(lastTest.subject);
-      subjectName = subject ? subject.name : '';
-    }
-
-    // Получаем сам тест по testId
-    if (!lastTest.test) {
-      return res.status(404).json({ message: 'Test ID not found in history' });
-    }
-    const test = await Test.findById(lastTest.test);
-    if (!test) {
-      return res.status(404).json({ message: 'Test not found' });
-    }
-
-    // Получаем ответы пользователя на этот тест
-    const answers = await TestAnswer.find({ user: userId, test: test._id });
-
-    // Формируем подробный разбор по вопросам
-    let questionsBlock = '';
-    for (const q of test.questions) {
-      const userAnswer = answers.find((a) => a.questionId === q.questionId);
-      questionsBlock += `Вопрос: ${q.text}\n`;
-      questionsBlock += `Правильный ответ: ${q.correctOptionId}\n`;
-      if (userAnswer) {
-        questionsBlock += `Ответ пользователя: ${
-          userAnswer.selectedOptionId
-        } (${userAnswer.isCorrect ? 'верно' : 'ошибка'})\n`;
-      } else {
-        questionsBlock += `Ответ пользователя: не отвечал\n`;
+    let historySummaryBlock = '';
+    if (allHistories && allHistories.length > 0) {
+      historySummaryBlock = 'Вот краткая история последних результатов:\n\n';
+      for (const history of allHistories) {
+        const subjectName = history.subject
+          ? history.subject.name
+          : 'Неизвестный предмет';
+        historySummaryBlock += `---
+Предмет: "${subjectName}", Уровень: ${history.level}
+Дата: ${formatDate(history.date)}
+Результат: ${history.resultPercent}% (${history.correct} из ${
+          history.total
+        })\n`;
       }
-      if (q.explanation) {
-        questionsBlock += `Пояснение: ${q.explanation}\n`;
-      }
-      questionsBlock += '\n';
+      historySummaryBlock += '---\n\n';
     }
 
-    // Улчшенный промпт иее
-    const prompt = `Пользователь прошёл тест по предмету: ${subjectName}, уровень сложности: ${lastTest.level}. Результат: ${lastTest.resultPercent}% (${lastTest.correct} из ${lastTest.total} правильных ответов).
+    // 2. Детально разбираем последний пройденный тест
+    let detailedBlock = '';
+    const populatedHistory = await TestHistory.findById(
+      latestTestHistory._id
+    ).populate('subject test');
 
-Ниже приведён подробный разбор вопросов, включая ответы пользователя, правильные ответы и пояснения:
+    if (populatedHistory && populatedHistory.test) {
+      const test = populatedHistory.test;
+      const subjectName = populatedHistory.subject
+        ? populatedHistory.subject.name
+        : 'Неизвестный предмет';
 
-${questionsBlock}
+      const answers = await TestAnswer.find({ user: userId, test: test._id });
 
-На основе вышеуказанных данных, пожалуйста, сгенерируй развёрнутый и полезный текстовый совет, направленный на улучшение знаний пользователя. Ответ должен содержать следующие разделы:
+      detailedBlock = `А вот детальный разбор самого последнего теста ("${test.title}"):\n\n`;
+      for (const q of test.questions) {
+        const userAnswer = answers.find((a) => a.questionId === q.questionId);
+        detailedBlock += `Вопрос: ${q.text}\n`;
+        detailedBlock += `Правильный ответ: ${q.correctOptionId}\n`;
+        if (userAnswer) {
+          detailedBlock += `Ответ пользователя: ${
+            userAnswer.selectedOptionId
+          } (${userAnswer.isCorrect ? 'верно' : 'ошибка'})\n`;
+        } else {
+          detailedBlock += `Ответ пользователя: не отвечал\n`;
+        }
+        if (q.explanation) {
+          detailedBlock += `Пояснение: ${q.explanation}\n`;
+        }
+        detailedBlock += '\n';
+      }
+    }
 
-1. Общая оценка результатов.
-2. Ошибки и слабые темы.
-3. Конкретные рекомендации по обучению (что почитать, на что обратить внимание, какие задания повторить).
-4. Советы по стратегии прохождения теста (например, как правильно распределять время).
-5. Мотивация и поддержка — чтобы пользователь не терял уверенность.
+    // 3. Собираем улучшенный, комплексный промпт
+    const prompt = `Проанализируй успеваемость пользователя, чтобы дать ему комплексный и полезный совет.
+
+${historySummaryBlock}
+${detailedBlock}
+
+На основе анализа этой информации (и общей динамики, и детальных ошибок в последнем тесте), пожалуйста, сгенерируй развёрнутый совет. Обрати внимание на тренды в результатах и на конкретные пробелы в знаниях, выявленные в последнем тесте.
+
+Ответ должен содержать следующие разделы:
+
+1. Общая оценка прогресса и динамики результатов (анализ истории).
+2. Подробный разбор ошибок в последнем тесте и выявление слабых тем.
+3. Конкретные рекомендации по обучению (что изучить, чтобы закрыть пробелы).
+4. Советы по стратегии на будущее (как готовиться к следующим тестам).
+5. Мотивация и поддержка, основанная на его общем прогрессе и результатах.
 
 Стиль ответа: дружелюбный, поддерживающий, но профессиональный. Избегай использования эмодзи, markdown и изображений. Ответ должен быть написан строго на русском языке.`;
 
@@ -82,14 +96,14 @@ ${questionsBlock}
     const adviceText = await getAdviceFromHuggingFace(prompt);
 
     // Сохраняем совет (обновляем, если уже есть для пользователя)
-    const advice = await Advice.findOneAndUpdate(
+    await Advice.findOneAndUpdate(
       { user: userId },
       { adviceText, createdAt: new Date() },
       { new: true, upsert: true }
     );
-    res.status(201).json(advice);
+    console.log(`Advice generated and saved for user ${userId}`);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(`Error generating advice for user ${userId}:`, error);
   }
 };
 

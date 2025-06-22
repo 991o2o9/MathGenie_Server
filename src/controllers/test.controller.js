@@ -9,6 +9,7 @@ import TestHistory from '../models/testHistory.model.js';
 import Subsection from '../models/subsection.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
 import TestProgress from '../models/testProgress.model.js';
+import { generateAndSaveAdviceForTest } from './advice.controller.js';
 
 async function generateTest(req, res) {
   const { topicId, difficulty } = req.body;
@@ -446,7 +447,7 @@ async function submitTest(req, res) {
       const subjectId = test.topic.subsection.subject._id;
       const level = test.difficulty;
       const resultPercent = Math.round((score / test.questions.length) * 100);
-      await TestHistory.create({
+      const newTestHistory = await TestHistory.create({
         user: req.user._id,
         subject: subjectId,
         test: test._id,
@@ -459,6 +460,11 @@ async function submitTest(req, res) {
 
       // После успешной сдачи удаляем прогресс
       await TestProgress.findOneAndDelete({ user: userId, test: testId });
+
+      // Запускаем генерацию совета в фоновом режиме (без await)
+      generateAndSaveAdviceForTest(req.user._id, newTestHistory).catch((err) =>
+        console.error('Ошибка фоновой генерации совета:', err)
+      );
     } else {
       historyError =
         'Не удалось определить пользователя или subject для истории.';

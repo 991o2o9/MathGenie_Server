@@ -75,6 +75,8 @@ const router = express.Router();
  *             properties:
  *               name:
  *                 type: string
+ *               subtitle:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Предмет создан
@@ -106,6 +108,8 @@ const router = express.Router();
  *             type: object
  *             properties:
  *               name:
+ *                 type: string
+ *               subtitle:
  *                 type: string
  *     responses:
  *       200:

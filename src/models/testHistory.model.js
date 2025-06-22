@@ -1,5 +1,16 @@
 import mongoose from 'mongoose';
 
+// Эта подсхема будет хранить детальную информацию по каждому ответу
+const detailedAnswerSchema = new mongoose.Schema(
+  {
+    questionId: { type: String, required: true },
+    correctOptionId: { type: String, required: true },
+    selectedOptionId: { type: String, required: true }, // Ответ пользователя
+    explanation: { type: String },
+  },
+  { _id: false }
+);
+
 const testHistorySchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   subject: {
@@ -13,6 +24,8 @@ const testHistorySchema = new mongoose.Schema({
   resultPercent: { type: Number, required: true },
   correct: { type: Number, required: true },
   total: { type: Number, required: true },
+  durationSeconds: { type: Number }, // Поле для длительности
+  answers: [detailedAnswerSchema], // Новое поле для хранения ответов
 });
 
 const TestHistory = mongoose.model('TestHistory', testHistorySchema);

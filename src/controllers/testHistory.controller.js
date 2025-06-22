@@ -4,50 +4,70 @@
 import TestHistory from '../models/testHistory.model.js';
 import { formatDate } from '../utils/dateFormat.js';
 
-// Получить всю историю пользователя
+// Получить всю историю пользователя (с полной детализацией)
 async function getTestHistories(req, res) {
-  const histories = await TestHistory.find({ user: req.user._id })
-    .populate('subject')
-    .sort({ date: -1 }); // Сортировка по дате в убывающем порядке (новые сначала)
+  try {
+    const histories = await TestHistory.find({ user: req.user._id })
+      .populate('subject', 'name') // Загружаем только имя предмета
+      .sort({ date: -1 });
 
-  const formatted = histories.map((history) => ({
-    subject:
-      history.subject && typeof history.subject === 'object'
-        ? {
-            id: history.subject.id,
-            name: history.subject.name,
-          }
-        : history.subject,
-    date: formatDate(history.date),
-    level: history.level,
-    resultPercent: history.resultPercent,
-    correct: history.correct,
-    total: history.total,
-  }));
-  res.json(formatted);
+    const formatted = histories.map((history) => ({
+      id: history._id,
+      subject: history.subject ? { name: history.subject.name } : null,
+      date: formatDate(history.date),
+      level: history.level,
+      resultPercent: history.resultPercent,
+      correct: history.correct,
+      total: history.total,
+      durationSeconds: history.durationSeconds,
+      answers: history.answers.map(
+        ({ questionId, correctOptionId, selectedOptionId, explanation }) => ({
+          questionId,
+          correctOptionId,
+          selectedOptionId,
+          explanation,
+        })
+      ),
+    }));
+    res.json(formatted);
+  } catch (error) {
+    res.status(500).json({ message: 'Ошибка получения истории', error });
+  }
 }
 
-// Получить одну запись истории
+// Получить одну запись истории (детально)
 async function getTestHistory(req, res) {
-  const history = await TestHistory.findOne({
-    _id: req.params.id,
-    user: req.user._id,
-  }).populate('subject');
-  if (!history) return res.status(404).json({ message: 'Не найдено' });
-  res.json({
-    subject:
-      history.subject && typeof history.subject === 'object'
-        ? {
-            id: history.subject.id,
-            name: history.subject.name,
-          }
-        : history.subject,
-    date: formatDate(history.date),
-    level: history.level,
-    resultPercent: history.resultPercent,
-    correct: history.correct,
-    total: history.total,
-  });
+  try {
+    const history = await TestHistory.findById(req.params.id).populate(
+      'subject',
+      'name'
+    );
+
+    if (!history || history.user.toString() !== req.user._id) {
+      return res.status(404).json({ message: 'Запись истории не найдена' });
+    }
+
+    res.json({
+      id: history._id,
+      subject: history.subject ? { name: history.subject.name } : null,
+      date: formatDate(history.date),
+      level: history.level,
+      resultPercent: history.resultPercent,
+      correct: history.correct,
+      total: history.total,
+      durationSeconds: history.durationSeconds,
+      answers: history.answers.map(
+        ({ questionId, correctOptionId, selectedOptionId, explanation }) => ({
+          questionId,
+          correctOptionId,
+          selectedOptionId,
+          explanation,
+        })
+      ),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Ошибка получения записи истории', error });
+  }
 }
 
 // Создать запись истории (используется при прохождении теста)

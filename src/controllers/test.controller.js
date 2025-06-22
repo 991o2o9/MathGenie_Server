@@ -395,30 +395,24 @@ async function getTest(req, res) {
 
 // Проверка теста
 async function submitTest(req, res) {
-  const { testId, answers } = req.body;
+  const { testId, answers, durationSeconds } = req.body;
   const userId = req.user.id;
 
-  // Получаем тест с заполнением topic
   const test = await Test.findById(testId).populate({
     path: 'topic',
-    populate: {
-      path: 'subsection',
-      populate: {
-        path: 'subject',
-      },
-    },
+    populate: { path: 'subsection', populate: { path: 'subject' } },
   });
   if (!test) return res.status(404).json({ message: 'Тест не найден' });
 
   let score = 0;
-  const correctAnswers = test.questions.map((q) => {
+  // Собираем полную информацию по каждому вопросу для истории
+  const detailedAnswersForHistory = test.questions.map((q) => {
     const userAnswer = answers.find((a) => a.questionId === q.questionId);
     const isCorrect =
       userAnswer && userAnswer.selectedOptionId === q.correctOptionId;
-    if (isCorrect) {
-      score++;
-    }
-    // Сохраняем ответ пользователя
+    if (isCorrect) score++;
+
+    // Сохраняем ответ в отдельную коллекцию для глубокой аналитики
     if (userAnswer) {
       TestAnswer.create({
         user: req.user._id,
@@ -428,9 +422,11 @@ async function submitTest(req, res) {
         isCorrect: !!isCorrect,
       });
     }
+
     return {
       questionId: q.questionId,
       correctOptionId: q.correctOptionId,
+      selectedOptionId: userAnswer ? userAnswer.selectedOptionId : 'none', // Сохраняем ответ пользователя
       explanation: q.explanation,
     };
   });
@@ -438,15 +434,11 @@ async function submitTest(req, res) {
   let historySaved = false;
   let historyError = null;
   try {
-    if (
-      req.user &&
-      test.topic &&
-      test.topic.subsection &&
-      test.topic.subsection.subject
-    ) {
+    if (req.user && test.topic?.subsection?.subject) {
       const subjectId = test.topic.subsection.subject._id;
       const level = test.difficulty;
       const resultPercent = Math.round((score / test.questions.length) * 100);
+
       const newTestHistory = await TestHistory.create({
         user: req.user._id,
         subject: subjectId,
@@ -455,33 +447,35 @@ async function submitTest(req, res) {
         resultPercent,
         correct: score,
         total: test.questions.length,
+        durationSeconds, // Сохраняем длительность
+        answers: detailedAnswersForHistory, // Сохраняем подробные ответы
       });
       historySaved = true;
 
-      // После успешной сдачи удаляем прогресс
       await TestProgress.findOneAndDelete({ user: userId, test: testId });
-
-      // Запускаем генерацию совета в фоновом режиме (без await)
       generateAndSaveAdviceForTest(req.user._id, newTestHistory).catch((err) =>
         console.error('Ошибка фоновой генерации совета:', err)
       );
     } else {
       historyError =
         'Не удалось определить пользователя или subject для истории.';
-      console.error('Ошибка сохранения истории теста:', historyError, {
-        user: req.user,
-        topic: test.topic,
-      });
     }
   } catch (err) {
     historyError = err.message || 'Ошибка сохранения истории теста';
     console.error('Ошибка сохранения истории теста:', err);
   }
 
+  // Ответ пользователю остается прежним
   res.json({
     score,
     total: test.questions.length,
-    correctAnswers,
+    correctAnswers: detailedAnswersForHistory.map(
+      ({ questionId, correctOptionId, explanation }) => ({
+        questionId,
+        correctOptionId,
+        explanation,
+      })
+    ),
     historySaved,
     historyError,
   });

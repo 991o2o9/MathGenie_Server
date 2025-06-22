@@ -38,13 +38,32 @@ async function getTestHistories(req, res) {
 // Получить одну запись истории (детально)
 async function getTestHistory(req, res) {
   try {
+    console.log('getTestHistory called with ID:', req.params.id);
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Пользователь не авторизован' });
+    }
+
+    console.log('User ID:', req.user._id);
+
     const history = await TestHistory.findById(req.params.id).populate(
       'subject',
       'name'
     );
 
-    if (!history || history.user.toString() !== req.user._id) {
+    console.log('Found history:', history ? 'yes' : 'no');
+    if (history) {
+      console.log('History user ID:', history.user.toString());
+      console.log('Current user ID:', req.user._id.toString());
+    }
+
+    if (!history) {
       return res.status(404).json({ message: 'Запись истории не найдена' });
+    }
+
+    // Проверяем, что запись принадлежит текущему пользователю
+    if (history.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Доступ запрещен' });
     }
 
     res.json({
@@ -66,6 +85,7 @@ async function getTestHistory(req, res) {
       ),
     });
   } catch (error) {
+    console.error('Ошибка получения записи истории:', error);
     res.status(500).json({ message: 'Ошибка получения записи истории', error });
   }
 }

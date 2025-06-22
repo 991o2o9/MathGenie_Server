@@ -6,9 +6,10 @@ import { formatDate } from '../utils/dateFormat.js';
 
 // Получить всю историю пользователя
 async function getTestHistories(req, res) {
-  const histories = await TestHistory.find({ user: req.user._id }).populate(
-    'subject'
-  );
+  const histories = await TestHistory.find({ user: req.user._id })
+    .populate('subject')
+    .sort({ date: -1 }); // Сортировка по дате в убывающем порядке (новые сначала)
+
   const formatted = histories.map((history) => ({
     subject:
       history.subject && typeof history.subject === 'object'

@@ -238,9 +238,31 @@ async function getAdminConfig() {
         options: {
           navigation: { name: 'Tests', icon: 'List' },
           label: 'Test History',
+          sort: {
+            direction: 'desc',
+            sortBy: 'date',
+          },
+          listProperties: [
+            'user',
+            'subject',
+            'test',
+            'date',
+            'level',
+            'resultPercent',
+            'correct',
+            'total',
+          ],
           properties: {
             _id: { isVisible: false },
             createdAt: { isVisible: false },
+            date: {
+              isVisible: {
+                list: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
           },
         },
       },

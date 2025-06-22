@@ -1,10 +1,9 @@
 import TestProgress from '../models/testProgress.model.js';
 import Test from '../models/test.model.js';
 
-// Save or update test progress
 export const saveProgress = async (req, res) => {
   const { testId, currentQuestionIndex, answers, timeLeft } = req.body;
-  const userId = req.user.id; // from authMiddleware
+  const userId = req.user.id;
 
   if (!testId) {
     return res.status(400).json({ message: 'testId is required' });
@@ -22,6 +21,18 @@ export const saveProgress = async (req, res) => {
       totalQuestions > 0 && answeredCount >= totalQuestions
         ? 'completed'
         : 'in_progress';
+
+    if (status === 'completed') {
+      await TestProgress.findOneAndDelete({
+        user: userId,
+        test: testId,
+      });
+      return res.status(200).json({
+        message: 'Тест завершен, прогресс удален',
+        status: 'completed',
+        completed: true,
+      });
+    }
 
     const progress = await TestProgress.findOneAndUpdate(
       { user: userId, test: testId },
@@ -48,7 +59,6 @@ export const getUserProgress = async (req, res) => {
   try {
     const progressList = await TestProgress.find({
       user: userId,
-      status: 'in_progress',
     }).populate({
       path: 'test',
       select: 'title questions',
@@ -58,30 +68,39 @@ export const getUserProgress = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const response = progressList
-      .map((p) => {
-        const totalQuestions = p.test.questions.length;
-        // Avoid division by zero and handle tests with no questions
-        if (totalQuestions === 0) {
-          return null;
-        }
-        const progress = Math.floor((p.answers.length / totalQuestions) * 100);
+    const response = [];
+    const testsToDelete = [];
 
-        // Filter out completed tests that might still have "in_progress" status
-        if (progress >= 100) {
-          return null;
-        }
+    for (const p of progressList) {
+      const totalQuestions = p.test.questions.length;
+      if (totalQuestions === 0) {
+        testsToDelete.push(p._id);
+        continue;
+      }
 
-        return {
-          testId: p.test._id,
-          title: p.test.title,
-          progress,
-          timeLeft: p.timeLeft,
-          currentQuestionIndex: p.currentQuestionIndex,
-          status: p.status,
-        };
-      })
-      .filter(Boolean); // Removes null entries
+      const progress = Math.floor((p.answers.length / totalQuestions) * 100);
+
+      // Delete if completed (100% progress) OR if status is completed
+      if (progress >= 100 || p.status === 'completed') {
+        testsToDelete.push(p._id);
+        continue;
+      }
+
+      response.push({
+        testId: p.test._id,
+        title: p.test.title,
+        progress,
+        timeLeft: p.timeLeft,
+        currentQuestionIndex: p.currentQuestionIndex,
+        status: p.status,
+      });
+    }
+
+    if (testsToDelete.length > 0) {
+      await TestProgress.deleteMany({
+        _id: { $in: testsToDelete },
+      });
+    }
 
     res.status(200).json(response);
   } catch (error) {
@@ -89,7 +108,6 @@ export const getUserProgress = async (req, res) => {
   }
 };
 
-// Get progress for a specific test
 export const getSpecificTestProgress = async (req, res) => {
   const { testId } = req.params;
   const userId = req.user.id;
@@ -98,18 +116,32 @@ export const getSpecificTestProgress = async (req, res) => {
     const progress = await TestProgress.findOne({
       user: userId,
       test: testId,
-      status: 'in_progress',
     }).populate('test', 'title questions timeLimit');
+
     if (!progress) {
-      return res.status(404).json({ message: 'No in-progress test found' });
+      return res.status(404).json({ message: 'No test progress found' });
     }
+
+    // Check if test is completed and delete if so
+    const totalQuestions = progress.test.questions.length;
+    const progressPercentage =
+      totalQuestions > 0
+        ? Math.floor((progress.answers.length / totalQuestions) * 100)
+        : 0;
+
+    if (progressPercentage >= 100 || progress.status === 'completed') {
+      await TestProgress.findByIdAndDelete(progress._id);
+      return res
+        .status(404)
+        .json({ message: 'Test is completed and progress has been removed' });
+    }
+
     res.status(200).json(progress);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching test progress', error });
   }
 };
 
-// Delete test progress
 export const deleteProgress = async (req, res) => {
   const { testId } = req.params;
   const userId = req.user.id;

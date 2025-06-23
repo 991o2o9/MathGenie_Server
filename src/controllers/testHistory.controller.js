@@ -13,6 +13,7 @@ async function getTestHistories(req, res) {
 
     const formatted = histories.map((history) => ({
       id: history._id,
+      testId: history.test,
       subject: history.subject ? { name: history.subject.name } : null,
       date: formatDate(history.date),
       level: history.level,
@@ -68,6 +69,7 @@ async function getTestHistory(req, res) {
 
     res.json({
       id: history._id,
+      testId: history.test,
       subject: history.subject ? { name: history.subject.name } : null,
       date: formatDate(history.date),
       level: history.level,

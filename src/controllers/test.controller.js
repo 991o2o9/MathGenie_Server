@@ -3,295 +3,344 @@
 import Test from '../models/test.model.js';
 import Topic from '../models/topic.model.js';
 import OrtSample from '../models/ortSample.model.js';
-import { v4 as uuidv4 } from 'uuid';
 import { askHuggingFace } from '../utils/huggingface.js';
 import TestHistory from '../models/testHistory.model.js';
-import Subsection from '../models/subsection.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
 import TestProgress from '../models/testProgress.model.js';
 import { generateAndSaveAdviceForTest } from './advice.controller.js';
-import { formatDate } from '../utils/dateFormat.js';
 
+// Конфигурация уровней сложности
+const DIFFICULTY_SETTINGS = {
+  начальный: {
+    questions: 20,
+    timeLimit: 1800,
+    complexity: 'базовые понятия и простые задачи',
+    keywords: ['основы', 'определение', 'простой', 'базовый'],
+  },
+  средний: {
+    questions: 30,
+    timeLimit: 2700,
+    complexity: 'применение знаний и анализ',
+    keywords: ['применение', 'анализ', 'сравнение', 'решение'],
+  },
+  продвинутый: {
+    questions: 40,
+    timeLimit: 3600,
+    complexity: 'синтез, оценка и комплексные задачи',
+    keywords: ['оценка', 'синтез', 'комплексный', 'критический анализ'],
+  },
+};
+
+// Типы вопросов для разнообразия
+const QUESTION_TYPES = [
+  'определение понятий',
+  'практическое применение',
+  'анализ ситуации',
+  'сравнение концепций',
+  'решение задач',
+  'логические выводы',
+];
+
+/**
+ * Создает улучшенный промпт для генерации качественных тестовых вопросов
+ */
+function createEnhancedPrompt(
+  topicName,
+  topicDescription,
+  ortSampleText,
+  difficulty,
+  numQuestions
+) {
+  const setting = DIFFICULTY_SETTINGS[difficulty];
+
+  let prompt = `ИНСТРУКЦИЯ: Ты - эксперт по созданию качественных тестовых заданий для ОРТ в Кыргызстане. Отвечай ТОЛЬКО на русском языке.
+
+ТЕМА: ${topicName}`;
+
+  if (topicDescription) {
+    prompt += `\nОПИСАНИЕ ТЕМЫ: ${topicDescription}`;
+  }
+
+  if (ortSampleText) {
+    prompt += `\n\nУЧЕБНЫЙ МАТЕРИАЛ:\n${ortSampleText}`;
+  }
+
+  prompt += `\n\nТРЕБОВАНИЯ К ТЕСТУ:
+- Уровень сложности: ${difficulty} (${setting.complexity})
+- Количество вопросов: ${numQuestions}
+- Фокус на: ${setting.keywords.join(', ')}
+
+КРИТЕРИИ КАЧЕСТВА:
+1. Каждый вопрос должен проверять конкретное знание или навык
+2. Варианты ответов должны быть правдоподобными (избегать очевидно неправильных)
+3. Вопросы должны быть разных типов: ${QUESTION_TYPES.slice(0, 3).join(', ')}
+4. Формулировка должна быть четкой и однозначной
+5. Избегать двусмысленности и "ловушек"
+
+РАСПРЕДЕЛЕНИЕ ТИПОВ ВОПРОСОВ:
+- ${Math.ceil(numQuestions * 0.3)} вопросов на знание фактов и определений
+- ${Math.ceil(numQuestions * 0.4)} вопросов на понимание и применение
+- ${Math.ceil(numQuestions * 0.3)} вопросов на анализ и синтез
+
+ОБЯЗАТЕЛЬНЫЙ ФОРМАТ ОТВЕТА:
+Вопрос 1. [Четкий и конкретный текст вопроса]
+A) [Правдоподобный вариант ответа]
+B) [Правдоподобный вариант ответа]
+C) [Правдоподобный вариант ответа]
+D) [Правдоподобный вариант ответа]
+Ответ: [A/B/C/D]
+Объяснение: [Подробное объяснение правильного ответа и почему другие варианты неверны]
+Тип: [тип вопроса из списка выше]
+
+ВАЖНО: 
+- НЕ используй фразы типа "Какой из вариантов", "Выберите правильный" - формулируй вопрос прямо
+- Каждый неправильный ответ должен быть обоснованно неверным, но не очевидно
+- Объяснение должно содержать 2-3 предложения
+- Генерируй ровно ${numQuestions} вопросов`;
+
+  return prompt;
+}
+
+/**
+ * Улучшенный парсер ответов от ИИ с валидацией
+ */
+function parseAIResponse(aiResponse, expectedQuestions) {
+  const questionsRaw = aiResponse.split(/Вопрос \d+\./).filter(Boolean);
+  const questions = [];
+
+  for (let i = 0; i < questionsRaw.length; i++) {
+    const questionText = questionsRaw[i];
+
+    try {
+      // Более надежное разделение частей
+      const explanationMatch = questionText.match(
+        /Объяснение:\s*(.+?)(?:\nТип:|$)/s
+      );
+      const typeMatch = questionText.match(/Тип:\s*(.+?)$/m);
+
+      const beforeExplanation = questionText.split('Объяснение:')[0];
+      const answerMatch = beforeExplanation.match(/Ответ:\s*([A-D])/);
+
+      if (!answerMatch) continue;
+
+      const beforeAnswer = beforeExplanation.split('Ответ:')[0];
+      const lines = beforeAnswer
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim());
+
+      if (lines.length < 5) continue; // Минимум: вопрос + 4 варианта
+
+      const questionTextLine = lines[0].trim();
+      const options = [];
+
+      // Извлекаем варианты ответов
+      for (let j = 1; j < lines.length; j++) {
+        const line = lines[j].trim();
+        const optionMatch = line.match(/^([A-D])\)\s*(.+)$/);
+        if (optionMatch) {
+          const [, letter, text] = optionMatch;
+          options.push({
+            optionId: letter.toLowerCase(),
+            text: text.trim(),
+          });
+        }
+      }
+
+      if (options.length !== 4) continue; // Должно быть ровно 4 варианта
+
+      const correctOptionId = answerMatch[1].toLowerCase();
+      const explanation = explanationMatch ? explanationMatch[1].trim() : '';
+      const questionType = typeMatch ? typeMatch[1].trim() : '';
+
+      // Валидация качества вопроса
+      if (isValidQuestion(questionTextLine, options, explanation)) {
+        questions.push({
+          questionId: `q${i + 1}`,
+          text: questionTextLine,
+          options: options,
+          correctOptionId: correctOptionId,
+          explanation: explanation,
+          type: questionType,
+        });
+      }
+    } catch (error) {
+      console.warn(`Ошибка парсинга вопроса ${i + 1}:`, error.message);
+      continue;
+    }
+  }
+
+  return questions.slice(0, expectedQuestions);
+}
+
+/**
+ * Валидация качества сгенерированного вопроса
+ */
+function isValidQuestion(questionText, options, explanation) {
+  // Проверка минимальной длины
+  if (questionText.length < 10) return false;
+  if (explanation.length < 20) return false;
+
+  // Проверка, что все варианты имеют достаточную длину
+  if (options.some((opt) => opt.text.length < 3)) return false;
+
+  // Проверка на отсутствие дублирования вариантов
+  const optionTexts = options.map((opt) => opt.text.toLowerCase());
+  if (new Set(optionTexts).size !== 4) return false;
+
+  // Проверка на качество формулировки (избегаем слишком очевидные ответы)
+  const hasObviousAnswer = options.some(
+    (opt) =>
+      opt.text.toLowerCase().includes('все вышеперечисленное') ||
+      opt.text.toLowerCase().includes('ни один из вариантов') ||
+      opt.text.toLowerCase().includes('неизвестно')
+  );
+
+  if (hasObviousAnswer) return false;
+
+  return true;
+}
+
+/**
+ * Повторная генерация вопросов при недостаточном качестве
+ */
+async function regenerateQuestions(
+  originalPrompt,
+  currentQuestions,
+  targetCount,
+  maxAttempts = 2
+) {
+  if (currentQuestions.length >= targetCount || maxAttempts <= 0) {
+    return currentQuestions;
+  }
+
+  const needed = targetCount - currentQuestions.length;
+  const regeneratePrompt =
+    originalPrompt.replace(
+      /Количество вопросов: \d+/,
+      `Количество вопросов: ${needed}`
+    ) +
+    `\n\nВНИМАНИЕ: Предыдущая попытка дала недостаточно качественных вопросов. Улучши качество формулировок и вариантов ответов.`;
+
+  try {
+    const aiResponse = await askHuggingFace(regeneratePrompt);
+    const newQuestions = parseAIResponse(aiResponse, needed);
+
+    return [...currentQuestions, ...newQuestions];
+  } catch (error) {
+    console.warn('Ошибка при регенерации вопросов:', error.message);
+    return currentQuestions;
+  }
+}
+
+// Основная функция генерации теста с улучшениями
 async function generateTest(req, res) {
-  const { topicId, difficulty, customTopicName, customTopicDescription } =
-    req.body;
-  // Проверяем наличие обязательных полей
-  if ((!topicId && !customTopicName) || !difficulty) {
-    return res
-      .status(400)
-      .json({
+  try {
+    const { topicId, difficulty, customTopicName, customTopicDescription } =
+      req.body;
+
+    // Валидация входных данных
+    if ((!topicId && !customTopicName) || !difficulty) {
+      return res.status(400).json({
         message:
           'Нужно указать либо topicId, либо customTopicName, а также difficulty',
       });
-  }
-
-  let topic = null;
-  let ortSampleText = '';
-  let topicName = '';
-  let topicDescription = '';
-
-  if (topicId) {
-    topic = await Topic.findById(topicId);
-    if (!topic) return res.status(404).json({ message: 'Топик не найден' });
-    topicName = topic.name;
-    // Получаем ort_sample для примера
-    const ortSample = await OrtSample.findOne({ topic: topicId });
-    ortSampleText = ortSample && ortSample.content ? ortSample.content : '';
-  } else {
-    topicName = customTopicName;
-    topicDescription = customTopicDescription || '';
-  }
-
-  // Сложности
-  const difficultySettings = {
-    начальный: { questions: 20, timeLimit: 1800 },
-    средний: { questions: 30, timeLimit: 2700 },
-    продвинутый: { questions: 40, timeLimit: 3600 },
-  };
-
-  const setting = difficultySettings[difficulty];
-  if (!setting) {
-    return res.status(400).json({ message: 'Недопустимый уровень сложности' });
-  }
-
-  const numQuestions = setting.questions;
-  const timeLimit = setting.timeLimit;
-
-  // prompt
-  let prompt = `Внимание: отвечай только на русском языке.\n\nТы — опытный преподаватель, готовящий учеников к тесту.`;
-  if (topicName) {
-    prompt += `\n\nТема теста: ${topicName}`;
-  }
-  if (topicDescription) {
-    prompt += `\nОписание: ${topicDescription}`;
-  }
-  if (ortSampleText) {
-    prompt += `\nУчебный материал и примеры: ${ortSampleText}`;
-  }
-  prompt += `\n\nСгенерируй ${numQuestions} реалистичных тестовых вопросов по этой теме для уровня \"${difficulty}\".\n\nДля каждого вопроса:\n- Укажи текст вопроса.\n- Дай 4 варианта ответа (A, B, C, D).\n- Укажи правильный ответ (например: Ответ: B).\n- Дай краткое объяснение (1-2 предложения), почему этот ответ верный или как решать.\n\nФормат:\nВопрос 1. [текст]\nA) [вариант A]\nB) [вариант B]\nC) [вариант C]\nD) [вариант D]\nОтвет: [A/B/C/D]\nОбъяснение: [краткое объяснение]\n\nИ так далее до ${numQuestions} вопросов. Не добавляй лишних пояснений.`;
-
-  let aiResponse;
-  try {
-    aiResponse = await askHuggingFace(prompt);
-  } catch (e) {
-    return res.status(500).json({
-      message: 'Ошибка генерации теста через HuggingFace',
-      error: e.message,
-    });
-  }
-
-  // Парсинг результата
-  const questionsRaw = aiResponse.split(/Вопрос \d+\./).filter(Boolean);
-  const questions = questionsRaw.map((q, idx) => {
-    // Отделяем объяснение
-    const [mainPart, explanationPart] = q.split('Объяснение:');
-    const [textAndOptions, answerLine] = mainPart.split('Ответ:');
-    const [text, ...optionsRaw] = textAndOptions.trim().split(/[A-D]\)/);
-    const options = optionsRaw
-      .map((opt, i) => ({
-        optionId: String.fromCharCode(97 + i),
-        text: opt.trim(),
-      }))
-      .filter((o) => o.text);
-    const questionId = `q${idx + 1}`;
-    let correctOptionId = null;
-    if (answerLine) {
-      const match = answerLine.match(/[A-D]/);
-      if (match) {
-        correctOptionId = match[0].toLowerCase();
-      }
     }
-    return {
-      questionId,
-      text: text.trim(),
-      options,
-      correctOptionId,
-      explanation: explanationPart ? explanationPart.trim() : '',
-    };
-  });
 
-  const filteredQuestions = questions.filter(
-    (q) => q.options.length && q.correctOptionId
-  );
-  const selectedQuestions = filteredQuestions.slice(0, numQuestions);
-
-  // Сохраняем тест с учетом пользовательской темы
-  const test = await Test.create({
-    title: topicId
-      ? `Тест по теме: ${topicName}`
-      : `Тест по пользовательской теме: ${topicName}`,
-    topic: topic ? topic._id : undefined,
-    customTopicName: !topicId ? topicName : undefined,
-    customTopicDescription: !topicId ? topicDescription : undefined,
-    difficulty,
-    questions: selectedQuestions,
-    timeLimit,
-    createdBy: req.user._id,
-  });
-
-  const questionsForUser = selectedQuestions.map((q) => ({
-    questionId: q.questionId,
-    text: q.text,
-    options: q.options,
-    explanation: q.explanation,
-  }));
-
-  res.status(201).json({
-    testId: test._id,
-    title: test.title,
-    questions: questionsForUser,
-    timeLimit: test.timeLimit,
-    customTopicName: test.customTopicName,
-    customTopicDescription: test.customTopicDescription,
-  });
-}
-
-async function createTest(req, res) {
-  const { title, topicId, difficulty, questions } = req.body;
-
-  if (!topicId || !difficulty || !title) {
-    return res
-      .status(400)
-      .json({ message: 'title, topicId и difficulty обязательны' });
-  }
-
-  const topic = await Topic.findById(topicId);
-  if (!topic) return res.status(404).json({ message: 'Топик не найден' });
-
-  // Сложности
-  const difficultySettings = {
-    начальный: { questions: 20, timeLimit: 1800 },
-    средний: { questions: 30, timeLimit: 2700 },
-    продвинутый: { questions: 40, timeLimit: 3600 },
-  };
-
-  const setting = difficultySettings[difficulty];
-  if (!setting) {
-    return res.status(400).json({ message: 'Недопустимый уровень сложности' });
-  }
-  const timeLimit = setting.timeLimit;
-  let finalQuestions = questions;
-
-  if (!finalQuestions || finalQuestions.length === 0) {
-    const ortSample = await OrtSample.findOne({ topic: topicId });
-    const ortSampleText =
-      ortSample && ortSample.content ? ortSample.content : '';
-    const numQuestions = setting.questions;
-    const prompt = `Внимание: отвечай только на русском языке.
-
-Ты — опытный преподаватель, готовящий учеников к ОРТ (Общее Республиканское Тестирование) в Кыргызстане.
-
-Вот учебный материал и примеры по теме "${topic.name}":
-${ortSampleText}
-
-Сгенерируй ${numQuestions} реалистичных тестовых вопросов по этой теме для уровня "${difficulty}".
-
-Для каждого вопроса:
-- Укажи текст вопроса.
-- Дай 4 варианта ответа (A, B, C, D).
-- Укажи правильный ответ (например: Ответ: B).
-- Дай краткое объяснение (1-2 предложения), почему этот ответ верный или как решать.
-
-Формат:
-Вопрос 1. [текст]
-A) [вариант A]
-B) [вариант B]
-C) [вариант C]
-D) [вариант D]
-Ответ: [A/B/C/D]
-Объяснение: [краткое объяснение]
-
-И так далее до ${numQuestions} вопросов. Не добавляй лишних пояснений.`;
-
-    let aiResponse;
-    try {
-      aiResponse = await askHuggingFace(prompt);
-    } catch (e) {
-      return res.status(500).json({
-        message: 'Ошибка генерации теста через HuggingFace',
-        error: e.message,
+    if (!DIFFICULTY_SETTINGS[difficulty]) {
+      return res.status(400).json({
+        message: `Недопустимый уровень сложности. Доступные: ${Object.keys(
+          DIFFICULTY_SETTINGS
+        ).join(', ')}`,
       });
     }
 
-    const questionsRaw = aiResponse.split(/Вопрос \d+\./).filter(Boolean);
-    const parsedQuestions = questionsRaw.map((q, idx) => {
-      const [mainPart, explanationPart] = q.split('Объяснение:');
-      const [textAndOptions, answerLine] = mainPart.split('Ответ:');
-      const [text, ...optionsRaw] = textAndOptions.trim().split(/[A-D]\)/);
-      const options = optionsRaw
-        .map((opt, i) => ({
-          optionId: String.fromCharCode(97 + i),
-          text: opt.trim(),
-        }))
-        .filter((o) => o.text);
-      const questionId = `q${idx + 1}`;
-      let correctOptionId = null;
-      if (answerLine) {
-        const match = answerLine.match(/[A-D]/);
-        if (match) {
-          correctOptionId = match[0].toLowerCase();
-        }
-      }
-      return {
-        questionId,
-        text: text.trim(),
-        options,
-        correctOptionId,
-        explanation: explanationPart ? explanationPart.trim() : '',
-      };
-    });
-    finalQuestions = parsedQuestions.filter(
-      (q) => q.options.length && q.correctOptionId
-    );
-  }
-  const test = await Test.create({
-    title,
-    topic: topic._id,
-    difficulty,
-    questions: finalQuestions,
-    timeLimit,
-    createdBy: req.user._id,
-  });
+    let topic = null;
+    let ortSampleText = '';
+    let topicName = '';
+    let topicDescription = '';
 
-  res.status(201).json(test);
-}
+    // Получение данных о теме
+    if (topicId) {
+      topic = await Topic.findById(topicId);
+      if (!topic) return res.status(404).json({ message: 'Топик не найден' });
 
-async function getAllTests(req, res) {
-  try {
-    let query = {};
-
-    // Если пользователь не админ, показываем только тесты админов и его собственные
-    if (req.user.role !== 'ADMIN') {
-      query = {
-        $or: [
-          { createdBy: { $in: await getAdminUserIds() } }, // Тесты админов
-        ],
-      };
+      topicName = topic.name;
+      const ortSample = await OrtSample.findOne({ topic: topicId });
+      ortSampleText = ortSample?.content || '';
+    } else {
+      topicName = customTopicName;
+      topicDescription = customTopicDescription || '';
     }
 
-    const tests = await Test.find(
-      query,
-      'title difficulty questions timeLimit createdBy'
-    )
-      .populate('topic', 'name')
-      .populate('createdBy', 'username role');
+    const setting = DIFFICULTY_SETTINGS[difficulty];
+    const numQuestions = setting.questions;
+    const timeLimit = setting.timeLimit;
 
-    const formattedTests = tests.map((test) => ({
+    // Создание улучшенного промпта
+    const prompt = createEnhancedPrompt(
+      topicName,
+      topicDescription,
+      ortSampleText,
+      difficulty,
+      numQuestions
+    );
+
+    // Генерация вопросов
+    const aiResponse = await askHuggingFace(prompt);
+    let questions = parseAIResponse(aiResponse, numQuestions);
+
+    // Попытка регенерации при недостаточном количестве качественных вопросов
+    if (questions.length < numQuestions * 0.8) {
+      console.log(
+        `Получено только ${questions.length} из ${numQuestions} вопросов. Попытка регенерации...`
+      );
+      questions = await regenerateQuestions(prompt, questions, numQuestions);
+    }
+
+    if (questions.length === 0) {
+      return res.status(500).json({
+        message:
+          'Не удалось сгенерировать качественные вопросы. Попробуйте изменить параметры теста.',
+      });
+    }
+
+    // Сохранение теста
+    const test = await Test.create({
+      title: topicId
+        ? `Тест по теме: ${topicName} (${difficulty})`
+        : `Тест: ${topicName} (${difficulty})`,
+      topic: topic?._id,
+      customTopicName: !topicId ? topicName : undefined,
+      customTopicDescription: !topicId ? topicDescription : undefined,
+      difficulty,
+      questions: questions,
+      timeLimit,
+      createdBy: req.user._id,
+    });
+
+    // Подготовка ответа для пользователя (без правильных ответов)
+    const questionsForUser = questions.map((q) => ({
+      questionId: q.questionId,
+      text: q.text,
+      options: q.options,
+    }));
+
+    res.status(201).json({
       testId: test._id,
       title: test.title,
-      topic: test.topic,
-      difficulty: test.difficulty,
-      questionCount: test.questions.length,
+      questions: questionsForUser,
       timeLimit: test.timeLimit,
-      createdBy: {
-        username: test.createdBy.username,
-        role: test.createdBy.role,
-      },
-    }));
-    res.json(formattedTests);
+      questionCount: questions.length,
+      customTopicName: test.customTopicName,
+      customTopicDescription: test.customTopicDescription,
+    });
   } catch (error) {
-    console.error('Ошибка при получении тестов:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error('Ошибка генерации теста:', error);
+    res.status(500).json({
+      message: 'Ошибка генерации теста',
+      error: error.message,
+    });
   }
 }
 
@@ -302,6 +351,46 @@ async function getAdminUserIds() {
   return admins.map((admin) => admin._id);
 }
 
+// Получить все тесты с правами доступа
+async function getAllTests(req, res) {
+  try {
+    let query = {};
+
+    // Если пользователь не админ, показываем только тесты админов
+    if (req.user.role !== 'ADMIN') {
+      const adminIds = await getAdminUserIds();
+      query = { createdBy: { $in: adminIds } };
+    }
+
+    const tests = await Test.find(
+      query,
+      'title difficulty questions timeLimit createdBy customTopicName'
+    )
+      .populate('topic', 'name')
+      .populate('createdBy', 'username role')
+      .sort({ createdAt: -1 });
+
+    const formattedTests = tests.map((test) => ({
+      testId: test._id,
+      title: test.title,
+      topic: test.topic,
+      customTopicName: test.customTopicName,
+      difficulty: test.difficulty,
+      questionCount: test.questions.length,
+      timeLimit: test.timeLimit,
+      createdBy: {
+        username: test.createdBy.username,
+        role: test.createdBy.role,
+      },
+    }));
+
+    res.json(formattedTests);
+  } catch (error) {
+    console.error('Ошибка при получении тестов:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+}
+
 // Получить тесты текущего пользователя
 async function getUserTests(req, res) {
   try {
@@ -309,13 +398,16 @@ async function getUserTests(req, res) {
 
     const tests = await Test.find(
       { createdBy: userId },
-      'title difficulty questions timeLimit'
-    ).populate('topic', 'name');
+      'title difficulty questions timeLimit customTopicName'
+    )
+      .populate('topic', 'name')
+      .sort({ createdAt: -1 });
 
     const formattedTests = tests.map((test) => ({
       testId: test._id,
       title: test.title,
       topic: test.topic,
+      customTopicName: test.customTopicName,
       difficulty: test.difficulty,
       questionCount: test.questions.length,
       timeLimit: test.timeLimit,
@@ -328,78 +420,53 @@ async function getUserTests(req, res) {
   }
 }
 
-// Получить тесты конкретного пользователя (только для админов)
-async function getUserTestsByAdmin(req, res) {
-  try {
-    const userId = req.params.userId;
-
-    // Проверяем, что пользователь существует
-    const User = (await import('../models/user.model.js')).default;
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
-    }
-
-    const tests = await Test.find(
-      { createdBy: userId },
-      'title difficulty questions timeLimit'
-    ).populate('topic', 'name');
-
-    const formattedTests = tests.map((test) => ({
-      testId: test._id,
-      title: test.title,
-      topic: test.topic,
-      difficulty: test.difficulty,
-      questionCount: test.questions.length,
-      timeLimit: test.timeLimit,
-    }));
-
-    res.json(formattedTests);
-  } catch (error) {
-    console.error('Ошибка при получении тестов пользователя админом:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
-  }
-}
-
 // Получить тест по id (без правильных ответов)
 async function getTest(req, res) {
-  const test = await Test.findById(req.params.id).populate(
-    'createdBy',
-    'username role'
-  );
-  if (!test) return res.status(404).json({ message: 'Тест не найден' });
+  try {
+    const test = await Test.findById(req.params.id).populate(
+      'createdBy',
+      'username role'
+    );
 
-  // Проверяем права доступа
-  if (
-    req.user.role !== 'ADMIN' &&
-    test.createdBy._id.toString() !== req.user._id.toString()
-  ) {
-    // Проверяем, является ли создатель теста админом
-    if (test.createdBy.role !== 'ADMIN') {
+    if (!test) {
+      return res.status(404).json({ message: 'Тест не найден' });
+    }
+
+    // Проверяем права доступа
+    if (
+      req.user.role !== 'ADMIN' &&
+      test.createdBy._id.toString() !== req.user._id.toString() &&
+      test.createdBy.role !== 'ADMIN'
+    ) {
       return res
         .status(403)
         .json({ message: 'Нет прав для просмотра этого теста' });
     }
+
+    const questions = test.questions.map((q) => ({
+      questionId: q.questionId,
+      text: q.text,
+      options: q.options,
+    }));
+
+    res.json({
+      testId: test._id,
+      title: test.title,
+      topic: test.topic,
+      customTopicName: test.customTopicName,
+      customTopicDescription: test.customTopicDescription,
+      difficulty: test.difficulty,
+      questions: questions,
+      timeLimit: test.timeLimit,
+      createdBy: {
+        username: test.createdBy.username,
+        role: test.createdBy.role,
+      },
+    });
+  } catch (error) {
+    console.error('Ошибка получения теста:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
   }
-
-  const questions = test.questions.map((q) => ({
-    questionId: q.questionId,
-    text: q.text,
-    options: q.options,
-  }));
-
-  res.json({
-    testId: test._id,
-    title: test.title,
-    topic: test.topic,
-    difficulty: test.difficulty,
-    questions: questions,
-    timeLimit: test.timeLimit,
-    createdBy: {
-      username: test.createdBy.username,
-      role: test.createdBy.role,
-    },
-  });
 }
 
 // Получить ответы и объяснения по ID теста
@@ -407,18 +474,15 @@ async function getTestAnswers(req, res) {
   try {
     const { testId } = req.params;
 
-    if (!req.user || !req.user._id) {
+    if (!req.user?._id) {
       return res.status(401).json({ message: 'Пользователь не авторизован' });
     }
 
-    // Находим тест с полной информацией
     const test = await Test.findById(testId).populate({
       path: 'topic',
       populate: {
         path: 'subsection',
-        populate: {
-          path: 'subject',
-        },
+        populate: { path: 'subject' },
       },
     });
 
@@ -426,13 +490,11 @@ async function getTestAnswers(req, res) {
       return res.status(404).json({ message: 'Тест не найден' });
     }
 
-    // Получаем ответы пользователя на этот тест
     const userAnswers = await TestAnswer.find({
       user: req.user._id,
       test: testId,
     });
 
-    // Формируем ответ с вопросами, правильными ответами и ответами пользователя
     const answersWithExplanations = test.questions.map((question) => {
       const userAnswer = userAnswers.find(
         (answer) => answer.questionId === question.questionId
@@ -443,9 +505,10 @@ async function getTestAnswers(req, res) {
         questionText: question.text,
         options: question.options,
         correctOptionId: question.correctOptionId,
-        selectedOptionId: userAnswer ? userAnswer.selectedOptionId : null,
-        isCorrect: userAnswer ? userAnswer.isCorrect : false,
+        selectedOptionId: userAnswer?.selectedOptionId || null,
+        isCorrect: userAnswer?.isCorrect || false,
         explanation: question.explanation,
+        type: question.type,
       };
     });
 
@@ -454,7 +517,7 @@ async function getTestAnswers(req, res) {
       title: test.title,
       difficulty: test.difficulty,
       totalQuestions: test.questions.length,
-      subject: test.topic?.subsection?.subject?.name || 'Неизвестный предмет',
+      subject: test.topic?.subsection?.subject?.name || 'Тема',
       answers: answersWithExplanations,
     });
   } catch (error) {
@@ -463,101 +526,130 @@ async function getTestAnswers(req, res) {
   }
 }
 
-// Проверка теста
+// Проверка теста с улучшенной аналитикой
 async function submitTest(req, res) {
-  const { testId, answers, durationSeconds } = req.body;
-  const userId = req.user.id;
-
-  const test = await Test.findById(testId).populate({
-    path: 'topic',
-    populate: { path: 'subsection', populate: { path: 'subject' } },
-  });
-  if (!test) return res.status(404).json({ message: 'Тест не найден' });
-
-  let score = 0;
-  // Собираем полную информацию по каждому вопросу для истории
-  const detailedAnswersForHistory = test.questions.map((q) => {
-    const userAnswer = answers.find((a) => a.questionId === q.questionId);
-    const isCorrect =
-      userAnswer && userAnswer.selectedOptionId === q.correctOptionId;
-    if (isCorrect) score++;
-
-    // Сохраняем ответ в отдельную коллекцию для глубокой аналитики
-    if (userAnswer) {
-      TestAnswer.create({
-        user: req.user._id,
-        test: test._id,
-        questionId: q.questionId,
-        selectedOptionId: userAnswer.selectedOptionId,
-        isCorrect: !!isCorrect,
-      });
-    }
-
-    return {
-      questionId: q.questionId,
-      correctOptionId: q.correctOptionId,
-      selectedOptionId: userAnswer ? userAnswer.selectedOptionId : 'none', // Сохраняем ответ пользователя
-      explanation: q.explanation,
-    };
-  });
-
-  let historySaved = false;
-  let historyError = null;
   try {
-    if (req.user && test.topic?.subsection?.subject) {
-      const subjectId = test.topic.subsection.subject._id;
-      const level = test.difficulty;
-      const resultPercent = Math.round((score / test.questions.length) * 100);
+    const { testId, answers, durationSeconds } = req.body;
+    const userId = req.user._id;
 
-      const newTestHistory = await TestHistory.create({
-        user: req.user._id,
-        subject: subjectId,
-        test: test._id,
-        level,
-        resultPercent,
-        correct: score,
-        total: test.questions.length,
-        durationSeconds, // Сохраняем длительность
-        answers: detailedAnswersForHistory, // Сохраняем подробные ответы
-      });
-      historySaved = true;
-
-      await TestProgress.findOneAndDelete({ user: userId, test: testId });
-      generateAndSaveAdviceForTest(req.user._id, newTestHistory).catch((err) =>
-        console.error('Ошибка фоновой генерации совета:', err)
-      );
-    } else {
-      historyError =
-        'Не удалось определить пользователя или subject для истории.';
+    // Валидация входных данных
+    if (!testId || !Array.isArray(answers)) {
+      return res.status(400).json({ message: 'Некорректные данные теста' });
     }
-  } catch (err) {
-    historyError = err.message || 'Ошибка сохранения истории теста';
-    console.error('Ошибка сохранения истории теста:', err);
-  }
 
-  // Ответ пользователю остается прежним
-  res.json({
-    score,
-    total: test.questions.length,
-    correctAnswers: detailedAnswersForHistory.map(
-      ({ questionId, correctOptionId, explanation }) => ({
+    const test = await Test.findById(testId).populate({
+      path: 'topic',
+      populate: { path: 'subsection', populate: { path: 'subject' } },
+    });
+
+    if (!test) {
+      return res.status(404).json({ message: 'Тест не найден' });
+    }
+
+    let score = 0;
+    const detailedAnswersForHistory = [];
+
+    // Обработка ответов с улучшенной валидацией
+    for (const question of test.questions) {
+      const userAnswer = answers.find(
+        (a) => a.questionId === question.questionId
+      );
+      const isCorrect =
+        userAnswer && userAnswer.selectedOptionId === question.correctOptionId;
+
+      if (isCorrect) score++;
+
+      const answerRecord = {
+        questionId: question.questionId,
+        correctOptionId: question.correctOptionId,
+        selectedOptionId: userAnswer?.selectedOptionId || 'none',
+        explanation: question.explanation,
+        type: question.type,
+      };
+
+      detailedAnswersForHistory.push(answerRecord);
+
+      // Сохраняем детальную информацию об ответах
+      if (userAnswer) {
+        await TestAnswer.create({
+          user: userId,
+          test: testId,
+          questionId: question.questionId,
+          selectedOptionId: userAnswer.selectedOptionId,
+          isCorrect: !!isCorrect,
+        });
+      }
+    }
+
+    // Сохранение истории теста
+    let historySaved = false;
+    let historyError = null;
+
+    try {
+      if (test.topic?.subsection?.subject) {
+        const subjectId = test.topic.subsection.subject._id;
+        const resultPercent = Math.round((score / test.questions.length) * 100);
+
+        const newTestHistory = await TestHistory.create({
+          user: userId,
+          subject: subjectId,
+          test: testId,
+          level: test.difficulty,
+          resultPercent,
+          correct: score,
+          total: test.questions.length,
+          durationSeconds: durationSeconds || 0,
+          answers: detailedAnswersForHistory,
+        });
+
+        historySaved = true;
+
+        // Удаляем прогресс и генерируем советы
+        await TestProgress.findOneAndDelete({ user: userId, test: testId });
+
+        // Фоновая генерация советов
+        generateAndSaveAdviceForTest(userId, newTestHistory).catch((err) =>
+          console.error('Ошибка фоновой генерации совета:', err)
+        );
+      }
+    } catch (err) {
+      historyError = err.message || 'Ошибка сохранения истории теста';
+      console.error('Ошибка сохранения истории теста:', err);
+    }
+
+    // Подготовка ответа с аналитикой
+    const correctAnswersInfo = detailedAnswersForHistory.map(
+      ({ questionId, correctOptionId, explanation, type }) => ({
         questionId,
         correctOptionId,
         explanation,
+        type,
       })
-    ),
-    historySaved,
-    historyError,
-  });
+    );
+
+    res.json({
+      score,
+      total: test.questions.length,
+      percentage: Math.round((score / test.questions.length) * 100),
+      correctAnswers: correctAnswersInfo,
+      historySaved,
+      historyError,
+      testCompleted: true,
+    });
+  } catch (error) {
+    console.error('Ошибка при отправке теста:', error);
+    res.status(500).json({
+      message: 'Ошибка при обработке результатов теста',
+      error: error.message,
+    });
+  }
 }
 
 export {
   generateTest,
   getTest,
   submitTest,
-  createTest,
   getAllTests,
   getUserTests,
-  getUserTestsByAdmin,
   getTestAnswers,
 };

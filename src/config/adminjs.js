@@ -341,6 +341,16 @@ async function getAdminConfig() {
                 create: false,
               },
             },
+            customTopicName: {
+              isVisible: { list: true, show: true, edit: true, create: true },
+              type: 'string',
+              label: 'Пользовательская тема',
+            },
+            customTopicDescription: {
+              isVisible: { list: false, show: true, edit: true, create: true },
+              type: 'string',
+              label: 'Описание пользовательской темы',
+            },
           },
           actions: {
             new: {

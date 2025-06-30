@@ -13,19 +13,34 @@ import { generateAndSaveAdviceForTest } from './advice.controller.js';
 import { formatDate } from '../utils/dateFormat.js';
 
 async function generateTest(req, res) {
-  const { topicId, difficulty } = req.body;
-  if (!topicId || !difficulty) {
+  const { topicId, difficulty, customTopicName, customTopicDescription } =
+    req.body;
+  // Проверяем наличие обязательных полей
+  if ((!topicId && !customTopicName) || !difficulty) {
     return res
       .status(400)
-      .json({ message: 'topicId и difficulty обязательны' });
+      .json({
+        message:
+          'Нужно указать либо topicId, либо customTopicName, а также difficulty',
+      });
   }
 
-  const topic = await Topic.findById(topicId);
-  if (!topic) return res.status(404).json({ message: 'Топик не найден' });
+  let topic = null;
+  let ortSampleText = '';
+  let topicName = '';
+  let topicDescription = '';
 
-  // Получаем ort_sample для примера
-  const ortSample = await OrtSample.findOne({ topic: topicId });
-  const ortSampleText = ortSample && ortSample.content ? ortSample.content : '';
+  if (topicId) {
+    topic = await Topic.findById(topicId);
+    if (!topic) return res.status(404).json({ message: 'Топик не найден' });
+    topicName = topic.name;
+    // Получаем ort_sample для примера
+    const ortSample = await OrtSample.findOne({ topic: topicId });
+    ortSampleText = ortSample && ortSample.content ? ortSample.content : '';
+  } else {
+    topicName = customTopicName;
+    topicDescription = customTopicDescription || '';
+  }
 
   // Сложности
   const difficultySettings = {
@@ -43,31 +58,17 @@ async function generateTest(req, res) {
   const timeLimit = setting.timeLimit;
 
   // prompt
-  const prompt = `Внимание: отвечай только на русском языке.
-
-Ты — опытный преподаватель, готовящий учеников к ОРТ (Общее Республиканское Тестирование) в Кыргызстане.
-
-Вот учебный материал и примеры по теме "${topic.name}":
-${ortSampleText}
-
-Сгенерируй ${numQuestions} реалистичных тестовых вопросов по этой теме для уровня "${difficulty}".
-
-Для каждого вопроса:
-- Укажи текст вопроса.
-- Дай 4 варианта ответа (A, B, C, D).
-- Укажи правильный ответ (например: Ответ: B).
-- Дай краткое объяснение (1-2 предложения), почему этот ответ верный или как решать.
-
-Формат:
-Вопрос 1. [текст]
-A) [вариант A]
-B) [вариант B]
-C) [вариант C]
-D) [вариант D]
-Ответ: [A/B/C/D]
-Объяснение: [краткое объяснение]
-
-И так далее до ${numQuestions} вопросов. Не добавляй лишних пояснений.`;
+  let prompt = `Внимание: отвечай только на русском языке.\n\nТы — опытный преподаватель, готовящий учеников к тесту.`;
+  if (topicName) {
+    prompt += `\n\nТема теста: ${topicName}`;
+  }
+  if (topicDescription) {
+    prompt += `\nОписание: ${topicDescription}`;
+  }
+  if (ortSampleText) {
+    prompt += `\nУчебный материал и примеры: ${ortSampleText}`;
+  }
+  prompt += `\n\nСгенерируй ${numQuestions} реалистичных тестовых вопросов по этой теме для уровня \"${difficulty}\".\n\nДля каждого вопроса:\n- Укажи текст вопроса.\n- Дай 4 варианта ответа (A, B, C, D).\n- Укажи правильный ответ (например: Ответ: B).\n- Дай краткое объяснение (1-2 предложения), почему этот ответ верный или как решать.\n\nФормат:\nВопрос 1. [текст]\nA) [вариант A]\nB) [вариант B]\nC) [вариант C]\nD) [вариант D]\nОтвет: [A/B/C/D]\nОбъяснение: [краткое объяснение]\n\nИ так далее до ${numQuestions} вопросов. Не добавляй лишних пояснений.`;
 
   let aiResponse;
   try {
@@ -114,9 +115,14 @@ D) [вариант D]
   );
   const selectedQuestions = filteredQuestions.slice(0, numQuestions);
 
+  // Сохраняем тест с учетом пользовательской темы
   const test = await Test.create({
-    title: `Тест по теме: ${topic.name}`,
-    topic: topic._id,
+    title: topicId
+      ? `Тест по теме: ${topicName}`
+      : `Тест по пользовательской теме: ${topicName}`,
+    topic: topic ? topic._id : undefined,
+    customTopicName: !topicId ? topicName : undefined,
+    customTopicDescription: !topicId ? topicDescription : undefined,
     difficulty,
     questions: selectedQuestions,
     timeLimit,
@@ -135,6 +141,8 @@ D) [вариант D]
     title: test.title,
     questions: questionsForUser,
     timeLimit: test.timeLimit,
+    customTopicName: test.customTopicName,
+    customTopicDescription: test.customTopicDescription,
   });
 }
 

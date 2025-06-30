@@ -62,6 +62,12 @@
  *                 type: string
  *                 enum: [начальный, средний, продвинутый]
  *                 description: Сложность теста
+ *               customTopicName:
+ *                 type: string
+ *                 description: Пользовательская тема (если не выбран topicId)
+ *               customTopicDescription:
+ *                 type: string
+ *                 description: Описание пользовательской темы (опционально)
  *     responses:
  *       201:
  *         description: Сгенерированный тест

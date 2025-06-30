@@ -15,7 +15,13 @@ const questionSchema = new mongoose.Schema({
 
 const testSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  topic: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', required: true },
+  topic: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Topic',
+    required: false,
+  },
+  customTopicName: { type: String }, // Название пользовательской темы
+  customTopicDescription: { type: String }, // Описание пользовательской темы
   difficulty: {
     type: String,
     enum: ['начальный', 'средний', 'продвинутый'],

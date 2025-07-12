@@ -376,28 +376,18 @@ import {
   generateTest,
   getTest,
   submitTest,
-  createTest,
   getAllTests,
   getUserTests,
-  getUserTestsByAdmin,
   getTestAnswers,
 } from '../controllers/test.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
 router.get('/', authMiddleware, getAllTests);
 router.get('/user', authMiddleware, getUserTests);
-router.get(
-  '/user/:userId',
-  authMiddleware,
-  roleMiddleware('ADMIN'),
-  getUserTestsByAdmin
-);
-router.post('/', authMiddleware, createTest);
+router.post('/', authMiddleware, generateTest);
 // router.post('/pass', authMiddleware, passTest); // old, removed
-router.post('/generate', authMiddleware, generateTest);
 router.get('/:id', authMiddleware, getTest);
 router.post('/submit', authMiddleware, submitTest);
 

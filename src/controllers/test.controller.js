@@ -343,8 +343,8 @@ async function generateTest(req, res) {
     // Сохранение теста
     const test = await Test.create({
       title: sanitizedTopicId
-        ? `Тест по теме: ${topicName} (${sanitizedDifficulty})`
-        : `Тест: ${topicName} (${sanitizedDifficulty})`,
+        ? `Тест по теме: ${topicName}`
+        : `Тест: ${topicName}`,
       topic: topic?._id,
       customTopicName: !sanitizedTopicId ? topicName : undefined,
       customTopicDescription: !sanitizedTopicId ? topicDescription : undefined,

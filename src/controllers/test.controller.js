@@ -235,19 +235,52 @@ async function regenerateQuestions(
 
 // Основная функция генерации теста с улучшениями
 async function generateTest(req, res) {
+  console.log('generateTest function called');
+  console.log('Request body:', req.body);
+
   try {
+    // Validate that req.body exists and is an object
+    if (!req.body || typeof req.body !== 'object') {
+      console.log('Validation failed: invalid request body');
+      return res.status(400).json({
+        message: 'Invalid request body. Expected a JSON object.',
+      });
+    }
+
     const { topicId, difficulty, customTopicName, customTopicDescription } =
       req.body;
 
+    console.log('Extracted parameters:', {
+      topicId,
+      difficulty,
+      customTopicName,
+      customTopicDescription,
+    });
+
+    // Sanitize and validate input
+    const sanitizedTopicId = topicId ? String(topicId).trim() : null;
+    const sanitizedDifficulty = difficulty ? String(difficulty).trim() : null;
+    const sanitizedCustomTopicName = customTopicName
+      ? String(customTopicName).trim()
+      : null;
+    const sanitizedCustomTopicDescription = customTopicDescription
+      ? String(customTopicDescription).trim()
+      : null;
+
     // Валидация входных данных
-    if ((!topicId && !customTopicName) || !difficulty) {
+    if (
+      (!sanitizedTopicId && !sanitizedCustomTopicName) ||
+      !sanitizedDifficulty
+    ) {
+      console.log('Validation failed: missing required parameters');
       return res.status(400).json({
         message:
           'Нужно указать либо topicId, либо customTopicName, а также difficulty',
       });
     }
 
-    if (!DIFFICULTY_SETTINGS[difficulty]) {
+    if (!DIFFICULTY_SETTINGS[sanitizedDifficulty]) {
+      console.log('Validation failed: invalid difficulty level');
       return res.status(400).json({
         message: `Недопустимый уровень сложности. Доступные: ${Object.keys(
           DIFFICULTY_SETTINGS
@@ -255,25 +288,27 @@ async function generateTest(req, res) {
       });
     }
 
+    console.log('Validation passed, proceeding with test generation...');
+
     let topic = null;
     let ortSampleText = '';
     let topicName = '';
     let topicDescription = '';
 
     // Получение данных о теме
-    if (topicId) {
-      topic = await Topic.findById(topicId);
+    if (sanitizedTopicId) {
+      topic = await Topic.findById(sanitizedTopicId);
       if (!topic) return res.status(404).json({ message: 'Топик не найден' });
 
       topicName = topic.name;
-      const ortSample = await OrtSample.findOne({ topic: topicId });
+      const ortSample = await OrtSample.findOne({ topic: sanitizedTopicId });
       ortSampleText = ortSample?.content || '';
     } else {
-      topicName = customTopicName;
-      topicDescription = customTopicDescription || '';
+      topicName = sanitizedCustomTopicName;
+      topicDescription = sanitizedCustomTopicDescription || '';
     }
 
-    const setting = DIFFICULTY_SETTINGS[difficulty];
+    const setting = DIFFICULTY_SETTINGS[sanitizedDifficulty];
     const numQuestions = setting.questions;
     const timeLimit = setting.timeLimit;
 
@@ -282,7 +317,7 @@ async function generateTest(req, res) {
       topicName,
       topicDescription,
       ortSampleText,
-      difficulty,
+      sanitizedDifficulty,
       numQuestions
     );
 
@@ -307,13 +342,13 @@ async function generateTest(req, res) {
 
     // Сохранение теста
     const test = await Test.create({
-      title: topicId
-        ? `Тест по теме: ${topicName} (${difficulty})`
-        : `Тест: ${topicName} (${difficulty})`,
+      title: sanitizedTopicId
+        ? `Тест по теме: ${topicName} (${sanitizedDifficulty})`
+        : `Тест: ${topicName} (${sanitizedDifficulty})`,
       topic: topic?._id,
-      customTopicName: !topicId ? topicName : undefined,
-      customTopicDescription: !topicId ? topicDescription : undefined,
-      difficulty,
+      customTopicName: !sanitizedTopicId ? topicName : undefined,
+      customTopicDescription: !sanitizedTopicId ? topicDescription : undefined,
+      difficulty: sanitizedDifficulty,
       questions: questions,
       timeLimit,
       createdBy: req.user._id,

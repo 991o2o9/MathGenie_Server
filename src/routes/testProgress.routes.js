@@ -9,6 +9,18 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
+// Debug middleware for test progress routes
+router.use((req, res, next) => {
+  console.log(`TestProgress route accessed: ${req.method} ${req.path}`);
+  next();
+});
+
+// Test route to verify the endpoint is working
+router.get('/test', (req, res) => {
+  console.log('Test route accessed');
+  res.status(200).json({ message: 'Test progress endpoint is working' });
+});
+
 router.use(authMiddleware);
 
 /**

@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import mongoose from 'mongoose';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
@@ -35,8 +36,48 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 app.use(cors());
-app.use(express.json());
+
+// Enhanced JSON parsing with error handling
+app.use(
+  express.json({
+    limit: '10mb',
+    verify: (req, res, buf) => {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        console.error('JSON parsing error:', e.message);
+        res.status(400).json({
+          message: 'Invalid JSON format',
+          error:
+            'The request body contains malformed JSON. Please check for unescaped characters like newlines, quotes, or special characters.',
+          details: e.message,
+        });
+        throw new Error('JSON parsing failed');
+      }
+    },
+  })
+);
+
+// Handle JSON parsing errors
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    console.error('JSON parsing error:', error.message);
+    return res.status(400).json({
+      message: 'Invalid JSON format',
+      error:
+        'The request body contains malformed JSON. Please check for unescaped characters like newlines, quotes, or special characters.',
+      details: error.message,
+    });
+  }
+  next();
+});
 
 // Routes
 app.use('/auth', authRoutes);
@@ -132,6 +173,42 @@ app.use(
 );
 
 app.use('/users', userRoutes);
+
+// Simple test route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'MathGenie API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  try {
+    // Check MongoDB connection
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    };
+
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      database: dbStatus[dbState] || 'unknown',
+      uptime: process.uptime(),
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+});
 
 // Список основных маршрутов API для фронта (HTML)
 app.get('/api', (req, res) => {
@@ -239,3 +316,25 @@ app.get('/api', (req, res) => {
   `);
 });
 export default app;
+
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
+  res.status(500).json({
+    message: 'Internal server error',
+    error:
+      process.env.NODE_ENV === 'development'
+        ? error.message
+        : 'Something went wrong',
+  });
+});
+
+// 404 handler for unmatched routes
+app.use('*', (req, res) => {
+  console.log('404 - Route not found:', req.method, req.originalUrl);
+  res.status(404).json({
+    message: 'Route not found',
+    method: req.method,
+    path: req.originalUrl,
+  });
+});

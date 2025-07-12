@@ -48,15 +48,21 @@ export const saveProgress = async (req, res) => {
     );
     res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: 'Ошибка сохранения прогресса', error });
+    console.error('Error in saveProgress:', error);
+    res
+      .status(500)
+      .json({ message: 'Ошибка сохранения прогресса', error: error.message });
   }
 };
 
 // Get all in-progress tests for a user
 export const getUserProgress = async (req, res) => {
+  console.log('getUserProgress called');
   const userId = req.user.id;
+  console.log('User ID:', userId);
 
   try {
+    console.log('Fetching test progress for user:', userId);
     const progressList = await TestProgress.find({
       user: userId,
     }).populate({
@@ -64,28 +70,51 @@ export const getUserProgress = async (req, res) => {
       select: 'title questions',
     });
 
+    console.log(
+      'Progress list found:',
+      progressList ? progressList.length : 0,
+      'items'
+    );
+
     if (!progressList) {
+      console.log('No progress list found, returning empty array');
       return res.status(200).json([]);
     }
 
     const response = [];
     const testsToDelete = [];
 
+    console.log('Processing progress items...');
     for (const p of progressList) {
+      console.log('Processing progress item:', p._id);
+
+      // Check if test exists and has questions
+      if (!p.test || !p.test.questions) {
+        console.log('Test is null or has no questions, marking for deletion');
+        testsToDelete.push(p._id);
+        continue;
+      }
+
       const totalQuestions = p.test.questions.length;
+      console.log('Total questions:', totalQuestions);
+
       if (totalQuestions === 0) {
+        console.log('No questions in test, marking for deletion');
         testsToDelete.push(p._id);
         continue;
       }
 
       const progress = Math.floor((p.answers.length / totalQuestions) * 100);
+      console.log('Progress percentage:', progress);
 
       // Delete if completed (100% progress) OR if status is completed
       if (progress >= 100 || p.status === 'completed') {
+        console.log('Test completed, marking for deletion');
         testsToDelete.push(p._id);
         continue;
       }
 
+      console.log('Adding to response:', p.test.title);
       response.push({
         testId: p.test._id,
         title: p.test.title,
@@ -96,15 +125,21 @@ export const getUserProgress = async (req, res) => {
       });
     }
 
+    console.log('Tests to delete:', testsToDelete.length);
     if (testsToDelete.length > 0) {
+      console.log('Deleting completed tests...');
       await TestProgress.deleteMany({
         _id: { $in: testsToDelete },
       });
     }
 
+    console.log('Sending response with', response.length, 'items');
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({ message: 'Ошибка получения прогресса', error });
+    console.error('Error in getUserProgress:', error);
+    res
+      .status(500)
+      .json({ message: 'Ошибка получения прогресса', error: error.message });
   }
 };
 
@@ -120,6 +155,14 @@ export const getSpecificTestProgress = async (req, res) => {
 
     if (!progress) {
       return res.status(404).json({ message: 'No test progress found' });
+    }
+
+    // Check if test exists and has questions
+    if (!progress.test || !progress.test.questions) {
+      await TestProgress.findByIdAndDelete(progress._id);
+      return res
+        .status(404)
+        .json({ message: 'Test not found, progress has been removed' });
     }
 
     // Check if test is completed and delete if so
@@ -138,7 +181,10 @@ export const getSpecificTestProgress = async (req, res) => {
 
     res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching test progress', error });
+    console.error('Error in getSpecificTestProgress:', error);
+    res
+      .status(500)
+      .json({ message: 'Error fetching test progress', error: error.message });
   }
 };
 
@@ -156,6 +202,9 @@ export const deleteProgress = async (req, res) => {
     }
     res.status(200).json({ message: 'Progress deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting progress', error });
+    console.error('Error in deleteProgress:', error);
+    res
+      .status(500)
+      .json({ message: 'Error deleting progress', error: error.message });
   }
 };

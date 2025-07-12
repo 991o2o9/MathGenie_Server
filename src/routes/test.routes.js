@@ -384,14 +384,51 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.get('/', authMiddleware, getAllTests);
-router.get('/user', authMiddleware, getUserTests);
-router.post('/', authMiddleware, generateTest);
-// router.post('/pass', authMiddleware, passTest); // old, removed
-router.get('/:id', authMiddleware, getTest);
-router.post('/submit', authMiddleware, submitTest);
+// Debug middleware for test routes
+router.use((req, res, next) => {
+  console.log(`Test route accessed: ${req.method} ${req.path}`);
+  next();
+});
 
-// Получить ответы и объяснения по ID теста
-router.get('/answers/:testId', authMiddleware, getTestAnswers);
+// Test route to verify the endpoint is working
+router.get('/test', (req, res) => {
+  console.log('Test route accessed');
+  res.status(200).json({ message: 'Test routes are working' });
+});
+
+// Example endpoint to show correct JSON format
+router.get('/generate/example', (req, res) => {
+  res.status(200).json({
+    message: 'Example JSON format for test generation',
+    example: {
+      difficulty: 'начальный',
+      customTopicName: 'Математика',
+      customTopicDescription:
+        'Тест по основам математики включая алгебру и геометрию. Вопросы охватывают основные темы школьной программы: числа, уравнения, функции, геометрические фигуры, площади и объемы.',
+    },
+    note: 'Make sure to properly escape newlines and special characters in JSON. Use \\n for newlines and escape quotes with \\".',
+  });
+});
+
+// Apply auth middleware to all routes
+router.use(authMiddleware);
+
+// Get all tests
+router.get('/', getAllTests);
+
+// Get user's tests
+router.get('/user', getUserTests);
+
+// Generate test - this should be accessible at /test/generate
+router.post('/generate', generateTest);
+
+// Submit test answers
+router.post('/submit', submitTest);
+
+// Get test answers and explanations - this should come before /:id
+router.get('/answers/:testId', getTestAnswers);
+
+// Get test by ID - this should be last to avoid conflicts with other routes
+router.get('/:id', getTest);
 
 export default router;

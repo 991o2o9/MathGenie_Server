@@ -340,6 +340,13 @@ async function generateTest(req, res) {
       });
     }
 
+    // === УНИКАЛИЗАЦИЯ questionId ===
+    questions = questions.map((q, idx) => ({
+      ...q,
+      questionId: `q${idx + 1}`,
+    }));
+    // === КОНЕЦ УНИКАЛИЗАЦИИ ===
+
     // Сохранение теста
     const test = await Test.create({
       title: sanitizedTopicId

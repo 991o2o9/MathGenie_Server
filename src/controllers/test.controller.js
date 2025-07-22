@@ -12,19 +12,19 @@ import { generateAndSaveAdviceForTest } from './advice.controller.js';
 // Конфигурация уровней сложности
 const DIFFICULTY_SETTINGS = {
   начальный: {
-    questions: 20,
+    questions: 15,
     timeLimit: 1800,
     complexity: 'базовые понятия и простые задачи',
     keywords: ['основы', 'определение', 'простой', 'базовый'],
   },
   средний: {
-    questions: 30,
+    questions: 25,
     timeLimit: 2700,
     complexity: 'применение знаний и анализ',
     keywords: ['применение', 'анализ', 'сравнение', 'решение'],
   },
   продвинутый: {
-    questions: 40,
+    questions: 30,
     timeLimit: 3600,
     complexity: 'синтез, оценка и комплексные задачи',
     keywords: ['оценка', 'синтез', 'комплексный', 'критический анализ'],

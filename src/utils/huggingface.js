@@ -33,7 +33,7 @@ async function askGroq(question) {
       ],
       model: MODEL,
       temperature: 0.3,
-      max_tokens: 600,
+      max_tokens: 7000,
       top_p: 0.9,
       stream: false,
     });

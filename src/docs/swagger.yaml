@@ -1,2 +1,337 @@
-# Swagger/OpenAPI спецификация
-# ...
+openapi: 3.0.0
+info:
+  title: MathGenie API
+  description: API для обучающего приложения MathGenie
+  version: 1.0.0
+  contact:
+    name: MathGenie Support
+    email: support@mathgenie.com
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.mathgenie.com
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserStatistics:
+      type: object
+      properties:
+        user:
+          type: string
+          description: ID пользователя
+        subjectStats:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+                description: ID предмета
+              totalTests:
+                type: number
+                description: Общее количество тестов
+              totalQuestions:
+                type: number
+                description: Общее количество вопросов
+              correctAnswers:
+                type: number
+                description: Количество правильных ответов
+              averageScore:
+                type: number
+                description: Средний балл в процентах
+              lastTestDate:
+                type: string
+                format: date-time
+                description: Дата последнего теста
+              progressTrend:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                      format: date-time
+                    score:
+                      type: number
+        weakTopics:
+          type: array
+          items:
+            type: object
+            properties:
+              topic:
+                type: string
+                description: ID темы
+              subject:
+                type: string
+                description: ID предмета
+              averageScore:
+                type: number
+                description: Средний балл по теме
+              testCount:
+                type: number
+                description: Количество тестов по теме
+              lastTestDate:
+                type: string
+                format: date-time
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [topic, test]
+                description: Тип рекомендации
+              targetId:
+                type: string
+                description: ID целевого объекта
+              reason:
+                type: string
+                description: Причина рекомендации
+              priority:
+                type: number
+                description: Приоритет рекомендации
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Время последнего обновления
+
+paths:
+  /api/statistics/overview:
+    get:
+      summary: Получить общую статистику пользователя
+      description: |
+        Возвращает гистограмму по пройденным тестам с данными о количестве решенных заданий 
+        и правильных ответов по каждому предмету. Статистика автоматически обновляется 
+        после каждого пройденного теста.
+      tags:
+        - Statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешно получена статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      subjectChartData:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            subjectName:
+                              type: string
+                              example: "Математика"
+                            totalTests:
+                              type: number
+                              example: 5
+                            totalQuestions:
+                              type: number
+                              example: 75
+                            correctAnswers:
+                              type: number
+                              example: 60
+                            averageScore:
+                              type: number
+                              example: 80
+                            accuracy:
+                              type: number
+                              example: 80
+                      weakTopics:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            topicName:
+                              type: string
+                              example: "Логика"
+                            subjectName:
+                              type: string
+                              example: "Математика"
+                            averageScore:
+                              type: number
+                              example: 43
+                            testCount:
+                              type: number
+                              example: 2
+                            lastTestDate:
+                              type: string
+                              format: date-time
+                      lastUpdated:
+                        type: string
+                        format: date-time
+        '401':
+          description: Пользователь не авторизован
+        '500':
+          description: Ошибка сервера
+
+  /api/statistics/progress:
+    get:
+      summary: Получить прогресс пользователя по времени
+      description: |
+        Возвращает линейный график, показывающий как меняется точность пользователя 
+        по тестам с течением времени. Можно получить как общий прогресс по всем предметам, 
+        так и прогресс по конкретному предмету.
+      tags:
+        - Statistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: subjectId
+          schema:
+            type: string
+          description: ID предмета для получения прогресса по конкретному предмету (необязательно)
+      responses:
+        '200':
+          description: Успешно получен прогресс
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date-time
+                          example: "2024-01-15T10:30:00.000Z"
+                        score:
+                          type: number
+                          example: 75
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Статистика по предмету не найдена
+        '500':
+          description: Ошибка сервера
+
+  /api/statistics/recommendations:
+    get:
+      summary: Получить персонализированные рекомендации
+      description: |
+        Возвращает автоматически сгенерированные рекомендации по темам и тестам 
+        на основе слабых мест пользователя. Система анализирует результаты тестов 
+        и предлагает темы для повторения и тесты для улучшения знаний.
+      tags:
+        - Statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешно получены рекомендации
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      recommendations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: [topic, test]
+                              example: "test"
+                            targetId:
+                              type: string
+                              example: "507f1f77bcf86cd799439011"
+                            targetName:
+                              type: string
+                              example: "Тест по логике"
+                            reason:
+                              type: string
+                              example: "Повторите тему 'Логика' - ваш средний балл 43%"
+                            priority:
+                              type: number
+                              example: 1
+                      weakTopics:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            topicName:
+                              type: string
+                              example: "Логика"
+                            subjectName:
+                              type: string
+                              example: "Математика"
+                            averageScore:
+                              type: number
+                              example: 43
+                            testCount:
+                              type: number
+                              example: 2
+                            recommendation:
+                              type: string
+                              example: "Тебе стоит сосредоточиться на 'Логике' — 43% правильных"
+                      lastUpdated:
+                        type: string
+                        format: date-time
+        '401':
+          description: Пользователь не авторизован
+        '500':
+          description: Ошибка сервера
+
+  /api/statistics/update:
+    post:
+      summary: Обновить статистику пользователя
+      description: |
+        Принудительно обновляет статистику пользователя на основе истории тестов. 
+        Обычно статистика обновляется автоматически после каждого теста, 
+        но этот эндпоинт позволяет обновить её вручную.
+      tags:
+        - Statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Статистика успешно обновлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Статистика обновлена"
+        '401':
+          description: Пользователь не авторизован
+        '500':
+          description: Ошибка сервера
+
+tags:
+  - name: Statistics
+    description: Эндпоинты для работы со статистикой пользователей

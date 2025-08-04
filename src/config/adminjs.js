@@ -9,6 +9,7 @@ import TestHistory from '../models/testHistory.model.js';
 import AiQuestion from '../models/aiQuestion.model.js';
 import Test from '../models/test.model.js';
 import TestProgress from '../models/testProgress.model.js';
+import UserStatistics from '../models/userStatistics.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { askHuggingFace } from '../utils/huggingface.js';
 import Advice from '../models/advice.model.js';
@@ -506,6 +507,66 @@ D) [вариант D]
             },
           },
           listProperties: ['user', 'adviceText', 'createdAt'],
+        },
+      },
+      {
+        resource: UserStatistics,
+        options: {
+          navigation: { name: 'User Statistics', icon: 'Chart' },
+          label: 'User Statistics',
+          properties: {
+            _id: { isVisible: false },
+            user: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            subjectStats: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'mixed',
+            },
+            weakTopics: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'mixed',
+            },
+            recommendations: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'mixed',
+            },
+            lastUpdated: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['user', 'lastUpdated'],
+          showProperties: ['user', 'subjectStats', 'weakTopics', 'recommendations', 'lastUpdated'],
         },
       },
     ],

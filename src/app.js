@@ -17,6 +17,7 @@ import testHistoryRoutes from './routes/testHistory.routes.js';
 import userRoutes from './routes/user.routes.js';
 import adviceRoutes from './routes/advice.routes.js';
 import testProgressRoutes from './routes/testProgress.routes.js';
+import userStatisticsRoutes from './routes/userStatistics.routes.js';
 
 // Middleware
 import authMiddleware from './middlewares/auth.middleware.js';
@@ -96,6 +97,7 @@ async function setupApp() {
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
   app.use('/api/advice', adviceRoutes);
   app.use('/test-progress', testProgressRoutes);
+  app.use('/api/statistics', userStatisticsRoutes);
 
   app.get('/protected', authMiddleware, (req, res) => {
     res.json({ message: 'Доступ разрешён', user: req.user });

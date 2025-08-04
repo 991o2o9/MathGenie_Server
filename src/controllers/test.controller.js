@@ -8,6 +8,7 @@ import TestHistory from '../models/testHistory.model.js';
 import { TestAnswer } from '../models/testHistory.model.js';
 import TestProgress from '../models/testProgress.model.js';
 import { generateAndSaveAdviceForTest } from './advice.controller.js';
+import { updateUserStatistics } from './userStatistics.controller.js';
 
 // Конфигурация уровней сложности
 const DIFFICULTY_SETTINGS = {
@@ -649,9 +650,14 @@ async function submitTest(req, res) {
         // Удаляем прогресс и генерируем советы
         await TestProgress.findOneAndDelete({ user: userId, test: testId });
 
-        // Фоновая генерация советов
+        // Фоновая генерация советов и обновление статистики
         generateAndSaveAdviceForTest(userId, newTestHistory).catch((err) =>
           console.error('Ошибка фоновой генерации совета:', err)
+        );
+        
+        // Обновление статистики пользователя
+        updateUserStatistics(userId).catch((err) =>
+          console.error('Ошибка обновления статистики:', err)
         );
       }
     } catch (err) {

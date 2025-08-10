@@ -13,12 +13,19 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/advice:
+ * /advice:
  *   get:
  *     summary: Получить советы пользователя
+ *     description: Возвращает персонализированные советы от ИИ на основе результатов тестов пользователя
  *     tags: [Advice]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: ID пользователя (если не передан, используется текущий авторизованный пользователь)
  *     responses:
  *       200:
  *         description: Список советов пользователя
@@ -31,15 +38,26 @@ const router = express.Router();
  *                 properties:
  *                   _id:
  *                     type: string
+ *                     example: "507f1f77bcf86cd799439011"
+ *                     description: Уникальный идентификатор совета
  *                   user:
  *                     type: string
+ *                     example: "507f1f77bcf86cd799439012"
+ *                     description: ID пользователя
  *                   adviceText:
  *                     type: string
+ *                     example: "На основе анализа ваших последних тестов, я вижу прогресс в математике. Рекомендую сосредоточиться на теме 'Логика'..."
+ *                     description: Текст совета от ИИ
  *                   createdAt:
  *                     type: string
- *                     format: date-time
+ *                     example: "15.12.2024"
+ *                     description: Дата создания совета в формате DD.MM.YYYY
+ *       400:
+ *         description: Не указан ID пользователя
  *       401:
- *         description: Неавторизован
+ *         description: Пользователь не авторизован
+ *       500:
+ *         description: Ошибка сервера
  */
 router.get('/', auth, getAdvice);
 

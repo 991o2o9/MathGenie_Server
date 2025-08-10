@@ -8,7 +8,7 @@ import {
   getAllTopics,
 } from '../controllers/topic.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -61,11 +61,11 @@ router.get('/', authMiddleware, getTopics);
 // Получить одну тему
 router.get('/:id', authMiddleware, getTopic);
 // Создать тему (ADMIN)
-router.post('/', authMiddleware, roleMiddleware('ADMIN'), createTopic);
+router.post('/', authMiddleware, isAdmin, createTopic);
 // Обновить тему (ADMIN)
-router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateTopic);
+router.put('/:id', authMiddleware, isAdmin, updateTopic);
 // Удалить тему (ADMIN)
-router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteTopic);
+router.delete('/:id', authMiddleware, isAdmin, deleteTopic);
 
 /**
  * @swagger

@@ -1,11 +1,12 @@
+
 openapi: 3.0.0
 info:
   title: MathGenie API
-  description: API для обучающего приложения MathGenie
+  description: Server для обучающего приложения MathGenie
   version: 1.0.0
   contact:
     name: MathGenie Support
-    email: support@mathgenie.com
+    email: asoltobekovv@gmail.com
 
 servers:
   - url: http://localhost:3000
@@ -21,6 +22,7 @@ components:
       bearerFormat: JWT
 
   schemas:
+  
     UserStatistics:
       type: object
       properties:
@@ -98,14 +100,79 @@ components:
                 description: Причина рекомендации
               priority:
                 type: number
-                description: Приоритет рекомендации
-        lastUpdated:
+                description: Приоритет рекомендации (1-5)
+        createdAt:
           type: string
           format: date-time
-          description: Время последнего обновления
+          description: Дата создания статистики
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата обновления статистики
+
+    Schedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Уникальный идентификатор занятия
+        date:
+          type: string
+          format: date
+          description: Дата проведения занятия
+        startTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          description: Время начала занятия (формат HH:MM)
+        endTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          description: Время окончания занятия (формат HH:MM)
+        title:
+          type: string
+          description: Тема урока
+        description:
+          type: string
+          description: Краткое описание занятия
+        format:
+          type: string
+          enum: [онлайн, оффлайн, запись]
+          default: онлайн
+          description: Формат занятия
+        status:
+          type: string
+          enum: [запланирован, проведён, перенесён, отменён]
+          default: запланирован
+          description: Статус занятия
+        teacher:
+          type: string
+          description: Имя преподавателя
+        materials:
+          type: array
+          items:
+            type: string
+          description: Ссылки на материалы (PDF, видео, статьи)
+        streamLink:
+          type: string
+          description: Ссылка на трансляцию (если есть)
+        homework:
+          type: string
+          description: Описание домашнего задания
+        homeworkDeadline:
+          type: string
+          format: date
+          description: Дата сдачи домашнего задания
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания записи
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата последнего обновления
 
 paths:
-  /api/statistics/overview:
+  /statistics/overview:
     get:
       summary: Получить общую статистику пользователя
       description: |
@@ -181,7 +248,7 @@ paths:
         '500':
           description: Ошибка сервера
 
-  /api/statistics/progress:
+  /statistics/progress:
     get:
       summary: Получить прогресс пользователя по времени
       description: |
@@ -228,7 +295,7 @@ paths:
         '500':
           description: Ошибка сервера
 
-  /api/statistics/recommendations:
+  /statistics/recommendations:
     get:
       summary: Получить персонализированные рекомендации
       description: |
@@ -302,7 +369,7 @@ paths:
         '500':
           description: Ошибка сервера
 
-  /api/statistics/update:
+  /statistics/update:
     post:
       summary: Обновить статистику пользователя
       description: |
@@ -332,6 +399,387 @@ paths:
         '500':
           description: Ошибка сервера
 
+  /schedule:
+    get:
+      summary: Получить расписание занятий
+      description: |
+        Возвращает список всех занятий с возможностью фильтрации по дате, статусу, 
+        формату и преподавателю. Студенты могут просматривать расписание.
+      tags:
+        - Schedule
+      parameters:
+        - name: date
+          in: query
+          description: Фильтр по дате (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          description: Фильтр по статусу занятия
+          required: false
+          schema:
+            type: string
+            enum: [запланирован, проведён, перенесён, отменён]
+        - name: format
+          in: query
+          description: Фильтр по формату занятия
+          required: false
+          schema:
+            type: string
+            enum: [онлайн, оффлайн, запись]
+        - name: teacher
+          in: query
+          description: Фильтр по имени преподавателя
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешно получено расписание
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Schedule'
+        '500':
+          description: Ошибка сервера
+
+    post:
+      summary: Создать новое занятие
+      description: |
+        Создаёт новое занятие в расписании. Доступно только администраторам.
+        Автоматически отправляет уведомления студентам.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+                - startTime
+                - endTime
+                - title
+                - teacher
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: Дата проведения занятия
+                startTime:
+                  type: string
+                  pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+                  description: Время начала занятия
+                endTime:
+                  type: string
+                  pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+                  description: Время окончания занятия
+                title:
+                  type: string
+                  description: Тема урока
+                description:
+                  type: string
+                  description: Описание занятия
+                format:
+                  type: string
+                  enum: [онлайн, оффлайн, запись]
+                  default: онлайн
+                teacher:
+                  type: string
+                  description: Имя преподавателя
+                materials:
+                  type: array
+                  items:
+                    type: string
+                  description: Ссылки на материалы
+                streamLink:
+                  type: string
+                  description: Ссылка на трансляцию
+                homework:
+                  type: string
+                  description: Домашнее задание
+                homeworkDeadline:
+                  type: string
+                  format: date
+                  description: Срок сдачи ДЗ
+      responses:
+        '201':
+          description: Занятие успешно создано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Занятие успешно создано"
+                  data:
+                    $ref: '#/components/schemas/Schedule'
+        '400':
+          description: Неверные данные
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+        '500':
+          description: Ошибка сервера
+
+  /schedule/{id}:
+    get:
+      summary: Получить занятие по ID
+      description: Возвращает информацию о конкретном занятии
+      tags:
+        - Schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID занятия
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешно получено занятие
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Schedule'
+        '404':
+          description: Занятие не найдено
+        '500':
+          description: Ошибка сервера
+
+    put:
+      summary: Обновить занятие
+      description: |
+        Обновляет существующее занятие. Администраторы могут изменять все поля, 
+        учителя - только свои занятия и не могут менять статус на "отменён".
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID занятия
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Schedule'
+      responses:
+        '200':
+          description: Занятие успешно обновлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Занятие успешно обновлено"
+                  data:
+                    $ref: '#/components/schemas/Schedule'
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Занятие не найдено
+        '500':
+          description: Ошибка сервера
+
+    delete:
+      summary: Удалить занятие
+      description: |
+        Удаляет занятие из расписания. Доступно только администраторам.
+        Автоматически отправляет уведомления об отмене.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID занятия
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Занятие успешно удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Занятие успешно удалено"
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Занятие не найдено
+        '500':
+          description: Ошибка сервера
+
+  /schedule/{id}/status:
+    patch:
+      summary: Изменить статус занятия
+      description: |
+        Изменяет статус занятия. Администраторы могут устанавливать любой статус,
+        учителя не могут отменять занятия.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID занятия
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [запланирован, проведён, перенесён, отменён]
+                  description: Новый статус занятия
+      responses:
+        '200':
+          description: Статус успешно изменён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Статус занятия успешно изменён"
+                  data:
+                    $ref: '#/components/schemas/Schedule'
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Занятие не найдено
+        '500':
+          description: Ошибка сервера
+
+  /schedule/bulk-import:
+    post:
+      summary: Массовый импорт занятий
+      description: |
+        Импортирует несколько занятий одновременно из массива данных.
+        Доступно только администраторам. Автоматически отправляет уведомления.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lessons
+              properties:
+                lessons:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Schedule'
+                  description: Массив занятий для импорта
+      responses:
+        '200':
+          description: Импорт завершён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Импортировано 5 занятий"
+                  data:
+                    type: object
+                    properties:
+                      created:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Schedule'
+                        description: Успешно созданные занятия
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lesson:
+                              type: object
+                              description: Данные занятия с ошибкой
+                            error:
+                              type: string
+                              description: Описание ошибки
+        '400':
+          description: Неверные данные
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+        '500':
+          description: Ошибка сервера
+
 tags:
   - name: Statistics
     description: Эндпоинты для работы со статистикой пользователей
+  - name: Schedule
+    description: Эндпоинты для работы с расписанием занятий

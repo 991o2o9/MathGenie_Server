@@ -6,7 +6,7 @@ import {
   deleteTestHistory,
 } from '../controllers/testHistory.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -125,7 +125,7 @@ router.post('/', authMiddleware, createTestHistory);
 router.delete(
   '/:id',
   authMiddleware,
-  roleMiddleware('ADMIN'),
+  isAdmin,
   deleteTestHistory
 );
 

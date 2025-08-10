@@ -10,7 +10,7 @@ import {
   deleteAiQuestion,
 } from '../controllers/aiQuestion.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -125,14 +125,14 @@ router.get('/top-questions', authMiddleware, getTopQuestions);
 router.post('/ask', authMiddleware, askAi);
 
 // Получить все AI-вопросы (ADMIN)
-router.get('/', authMiddleware, roleMiddleware('ADMIN'), getAllAiQuestions);
+router.get('/', authMiddleware, isAdmin, getAllAiQuestions);
 // Получить один AI-вопрос (ADMIN)
-router.get('/:id', authMiddleware, roleMiddleware('ADMIN'), getAiQuestion);
+router.get('/:id', authMiddleware, isAdmin, getAiQuestion);
 // Удалить AI-вопрос (ADMIN)
 router.delete(
   '/:id',
   authMiddleware,
-  roleMiddleware('ADMIN'),
+  isAdmin,
   deleteAiQuestion
 );
 

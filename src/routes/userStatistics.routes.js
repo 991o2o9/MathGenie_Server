@@ -14,7 +14,14 @@ router.use(authMiddleware);
 
 /**
  * @swagger
- * /api/statistics/overview:
+ * tags:
+ *   name: Statistics
+ *   description: Статистика пользователя по тестам и рекомендации
+ */
+
+/**
+ * @swagger
+ * /statistics/overview:
  *   get:
  *     summary: Получить общую статистику пользователя
  *     description: Возвращает гистограмму по пройденным тестам с данными о количестве решенных заданий и правильных ответов по каждому предмету
@@ -90,7 +97,7 @@ router.get('/overview', getUserStatistics);
 
 /**
  * @swagger
- * /api/statistics/progress:
+ * /statistics/progress:
  *   get:
  *     summary: Получить прогресс пользователя по времени
  *     description: Возвращает линейный график, показывающий как меняется точность пользователя по тестам с течением времени
@@ -137,7 +144,7 @@ router.get('/progress', getProgressTrend);
 
 /**
  * @swagger
- * /api/statistics/recommendations:
+ * /statistics/recommendations:
  *   get:
  *     summary: Получить персонализированные рекомендации
  *     description: Возвращает автоматически сгенерированные рекомендации по темам и тестам на основе слабых мест пользователя
@@ -211,7 +218,7 @@ router.get('/recommendations', getRecommendations);
 
 /**
  * @swagger
- * /api/statistics/update:
+ * /statistics/update:
  *   post:
  *     summary: Обновить статистику пользователя
  *     description: Принудительно обновляет статистику пользователя на основе истории тестов

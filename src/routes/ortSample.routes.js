@@ -157,7 +157,7 @@ import {
   deleteOrtSample,
 } from '../controllers/ortSample.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -173,7 +173,7 @@ router.get('/:id', authMiddleware, getOrtSample);
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware('ADMIN'),
+  isAdmin,
   upload.single('file'),
   createOrtSample
 );
@@ -181,11 +181,11 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware('ADMIN'),
+  isAdmin,
   upload.single('file'),
   updateOrtSample
 );
 // Удалить пробник (ADMIN)
-router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteOrtSample);
+router.delete('/:id', authMiddleware, isAdmin, deleteOrtSample);
 
 export default router;

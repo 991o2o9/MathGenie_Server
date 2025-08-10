@@ -7,7 +7,7 @@ import {
   deleteSubject,
 } from '../controllers/subject.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -148,10 +148,10 @@ router.get('/', authMiddleware, getSubjects);
 // Получить один предмет
 router.get('/:id', authMiddleware, getSubject);
 // Создать предмет (ADMIN)
-router.post('/', authMiddleware, roleMiddleware('ADMIN'), createSubject);
+router.post('/', authMiddleware, isAdmin, createSubject);
 // Обновить предмет (ADMIN)
-router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateSubject);
+router.put('/:id', authMiddleware, isAdmin, updateSubject);
 // Удалить предмет (ADMIN)
-router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteSubject);
+router.delete('/:id', authMiddleware, isAdmin, deleteSubject);
 
 export default router;

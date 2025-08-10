@@ -18,10 +18,14 @@ import userRoutes from './routes/user.routes.js';
 import adviceRoutes from './routes/advice.routes.js';
 import testProgressRoutes from './routes/testProgress.routes.js';
 import userStatisticsRoutes from './routes/userStatistics.routes.js';
+import teacherRoutes from './routes/teacher.routes.js';
+import studentRoutes from './routes/student.routes.js';
+import scheduleRoutes from './routes/schedule.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 // Middleware
 import authMiddleware from './middlewares/auth.middleware.js';
-import roleMiddleware from './middlewares/role.middleware.js';
+import { isAdmin } from './middlewares/role.middleware.js';
 
 // Config
 import { getAdminConfig } from './config/adminjs.js';
@@ -95,9 +99,13 @@ async function setupApp() {
   app.use('/ort-samples', ortSampleRoutes);
   app.use('/test-history', testHistoryRoutes);
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-  app.use('/api/advice', adviceRoutes);
+  app.use('/advice', adviceRoutes);
   app.use('/test-progress', testProgressRoutes);
-  app.use('/api/statistics', userStatisticsRoutes);
+  app.use('/statistics', userStatisticsRoutes);
+  app.use('/teacher', teacherRoutes);
+  app.use('/student', studentRoutes);
+  app.use('/schedule', scheduleRoutes);
+  app.use('/notifications', notificationRoutes);
 
   app.get('/protected', authMiddleware, (req, res) => {
     res.json({ message: 'Доступ разрешён', user: req.user });
@@ -106,7 +114,7 @@ async function setupApp() {
   app.get(
     '/admin-only',
     authMiddleware,
-    roleMiddleware('ADMIN'),
+    isAdmin,
     (req, res) => {
       res.json({ message: 'Только для ADMIN', user: req.user });
     }
@@ -141,7 +149,7 @@ async function setupApp() {
 
   // Swagger
   app.use(
-    '/api/docs',
+    '/docs',
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
       swaggerOptions: {
@@ -171,7 +179,7 @@ async function setupApp() {
   // Simple test route
   app.get('/', (req, res) => {
     res.json({
-      message: 'MathGenie API is running',
+      message: 'MathGenie Server is running',
       version: '1.0.0',
       timestamp: new Date().toISOString(),
     });

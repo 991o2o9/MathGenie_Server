@@ -1,5 +1,6 @@
 // AdminJS Config
 
+import mongoose from 'mongoose';
 import User from '../models/user.model.js';
 import Subject from '../models/subject.model.js';
 import Subsection from '../models/subsection.model.js';
@@ -10,9 +11,18 @@ import AiQuestion from '../models/aiQuestion.model.js';
 import Test from '../models/test.model.js';
 import TestProgress from '../models/testProgress.model.js';
 import UserStatistics from '../models/userStatistics.model.js';
+import Course from '../models/course.model.js';
+import Group from '../models/group.model.js';
+import Lesson from '../models/lesson.model.js';
+import Homework from '../models/homework.model.js';
+import Schedule from '../models/schedule.model.js';
+import Standup from '../models/standup.model.js';
+import Notification from '../models/notification.model.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { askHuggingFace } from '../utils/huggingface.js';
+import { sendPaymentNotification } from '../utils/notifications.js';
 import Advice from '../models/advice.model.js';
+import StudentPayment from '../models/studentPayment.model.js';
 
 async function getAdminConfig() {
   const { dark, light, noSidebar } = await import('@adminjs/themes');
@@ -36,6 +46,16 @@ async function getAdminConfig() {
           properties: {
             _id: { isVisible: false },
             id: { isVisible: false },
+            username: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
             password: {
               isVisible: {
                 list: false,
@@ -57,12 +77,124 @@ async function getAdminConfig() {
               type: 'string',
               isTitle: false,
             },
-            createdAt: { isVisible: false },
+            role: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              availableValues: [
+                { value: 'ADMIN', label: 'Администратор' },
+                { value: 'TEACHER', label: 'Учитель' },
+                { value: 'STUDENT', label: 'Студент' },
+              ],
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              reference: 'Group',
+            },
+            courses: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              reference: 'Course',
+              type: 'mixed',
+            },
+            'profile.firstName': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              label: 'Имя',
+            },
+            'profile.lastName': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              label: 'Фамилия',
+            },
+            'profile.email': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              label: 'Email',
+            },
+            'profile.phone': {
+              isVisible: {
+                list: true,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              label: 'Телефон',
+            },
+            'profile.avatar': {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+              label: 'URL аватара',
+            },
+            'profile.bio': {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'textarea',
+              label: 'Биография',
+            },
+
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'date',
+            },
           },
-          listProperties: ['username', 'role', 'plainPassword', 'createdAt'],
-          showProperties: ['username', 'role', 'plainPassword', 'createdAt'],
-          editProperties: ['username', 'role', 'plainPassword'],
-          filterProperties: ['username', 'role'],
+          listProperties: ['username', 'profile.firstName', 'profile.lastName', 'role', 'group', 'createdAt'],
+          showProperties: ['username', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio', 'createdAt'],
+          editProperties: ['username', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio'],
+          createProperties: ['username', 'plainPassword', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio'],
+          filterProperties: ['username', 'role', 'group', 'profile.firstName', 'profile.lastName', 'profile.email'],
           label: 'Users',
           actions: {
             new: {
@@ -75,6 +207,9 @@ async function getAdminConfig() {
                     originalPassword
                   );
                 }
+                
+
+                
                 return request;
               },
             },
@@ -90,8 +225,354 @@ async function getAdminConfig() {
                 } else if (request.payload) {
                   delete request.payload.password;
                 }
+                
                 return request;
               },
+
+            },
+          },
+        },
+      },
+      {
+        resource: StudentPayment,
+        options: {
+          navigation: { name: 'Payment', icon: 'CreditCard' },
+          label: 'Статус оплаты студентов',
+          properties: {
+            _id: { isVisible: false },
+            username: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'string',
+              label: 'Имя пользователя',
+            },
+            firstName: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'string',
+              label: 'Имя',
+            },
+            lastName: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'string',
+              label: 'Фамилия',
+            },
+            email: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'string',
+              label: 'Email',
+            },
+            phone: {
+              isVisible: {
+                list: true,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'string',
+              label: 'Телефон',
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              reference: 'Group',
+              label: 'Группа',
+            },
+            'payment.status': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: false,
+              },
+              availableValues: [
+                { value: 'unpaid', label: '❌ Не оплачено' },
+                { value: 'pending', label: '⏳ В ожидании' },
+                { value: 'paid', label: '✅ Оплачено' },
+                { value: 'overdue', label: '🚨 Просрочено' },
+                { value: 'cancelled', label: '❌ Отменено' },
+              ],
+              label: 'Статус оплаты',
+            },
+            'payment.amount': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: false,
+              },
+              type: 'number',
+              label: 'Сумма к оплате',
+            },
+            'payment.paidAmount': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: false,
+              },
+              type: 'number',
+              label: 'Оплаченная сумма',
+            },
+            'payment.dueDate': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: false,
+              },
+              type: 'date',
+              label: 'Дата оплаты',
+            },
+            'payment.lastPaymentDate': {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'date',
+              label: 'Дата последней оплаты',
+            },
+            'payment.notes': {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: false,
+              },
+              type: 'textarea',
+              label: 'Комментарии',
+            },
+            'payment.updatedAt': {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'date',
+              label: 'Обновлено',
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'date',
+              label: 'Дата регистрации',
+            },
+          },
+          listProperties: ['username', 'firstName', 'lastName', 'group', 'payment.status', 'payment.amount', 'payment.paidAmount', 'payment.dueDate', 'payment.updatedAt'],
+          showProperties: ['username', 'firstName', 'lastName', 'email', 'phone', 'group', 'payment.status', 'payment.amount', 'payment.paidAmount', 'payment.dueDate', 'payment.lastPaymentDate', 'payment.notes', 'payment.updatedAt', 'createdAt'],
+          editProperties: ['payment.status', 'payment.amount', 'payment.paidAmount', 'payment.dueDate', 'payment.notes'],
+          filterProperties: ['username', 'firstName', 'lastName', 'email', 'group', 'payment.status', 'payment.amount', 'payment.dueDate'],
+          sort: {
+            direction: 'desc',
+            sortBy: 'payment.updatedAt',
+          },
+          actions: {
+            new: { isAccessible: false },
+            delete: { isAccessible: false },
+            edit: {
+              after: async (response, request, context) => {
+                console.log('🔍 [ADMIN] Действие edit в StudentPayment вызвано');
+                console.log('📋 [ADMIN] Request payload:', JSON.stringify(request.payload, null, 2));
+                console.log('📋 [ADMIN] Record params:', JSON.stringify(context.record.params, null, 2));
+                
+                const { record } = context;
+                const { payload } = request;
+                
+                // Проверяем, есть ли данные об оплате в payload
+                if (payload && payload['payment.status']) {
+                  console.log(`🔄 [ADMIN] Статус оплаты в payload: ${payload['payment.status']}`);
+                  console.log(`🔄 [ADMIN] Статус оплаты в record: ${record.params['payment.status']}`);
+                  
+                  // Проверяем, изменились ли данные об оплате
+                  const paymentFields = ['payment.status', 'payment.amount', 'payment.paidAmount', 'payment.dueDate', 'payment.notes'];
+                  let hasChanges = false;
+                  
+                  for (const field of paymentFields) {
+                    if (payload[field] !== record.params[field]) {
+                      console.log(`🔄 [ADMIN] Поле ${field} изменилось: ${record.params[field]} -> ${payload[field]}`);
+                      hasChanges = true;
+                    }
+                  }
+                  
+                  if (hasChanges) {
+                    console.log(`✅ [ADMIN] Данные об оплате изменились! Отправляем уведомление...`);
+                  } else {
+                    console.log(`✅ [ADMIN] Отправляем уведомление о текущем статусе...`);
+                  }
+                  
+                  try {
+                    const userId = record.params._id || record.params.id;
+                    console.log(`📞 [ADMIN] Вызываем sendPaymentNotification с ID: ${userId}, статус: ${payload['payment.status']}`);
+                    await sendPaymentNotification(userId, payload['payment.status']);
+                    console.log(`💰 [ADMIN] Уведомление отправлено студенту ${record.params.username} (статус: ${payload['payment.status']})`);
+                  } catch (error) {
+                    console.error(`❌ [ADMIN] Ошибка при отправке уведомления студенту ${record.params.username}:`, error);
+                    console.error(`❌ [ADMIN] Stack trace:`, error.stack);
+                  }
+                } else {
+                  console.log(`ℹ️ [ADMIN] Нет данных о статусе оплаты в payload`);
+                }
+                
+                console.log('✅ [ADMIN] Действие edit завершено');
+                return response;
+              },
+            },
+            // Действие для массового обновления статуса оплаты
+            bulkUpdatePaymentStatus: {
+              actionType: 'bulk',
+              handler: async (request, response, context) => {
+                const { records, resource } = context;
+                const { status, notes } = request.payload;
+                
+                const updatedRecords = [];
+                
+                for (const record of records) {
+                  const updatedRecord = await resource.update(record.id, {
+                    'payment.status': status,
+                    'payment.notes': notes || record.params.payment?.notes || '',
+                    'payment.updatedAt': new Date()
+                  });
+                  
+                  // Отправляем уведомление об изменении статуса оплаты
+                  try {
+                    const userId = record.params._id || record.params.id;
+                    await sendPaymentNotification(userId, status);
+                    console.log(`💰 Уведомление отправлено студенту ${record.params.username} (статус: ${status})`);
+                  } catch (error) {
+                    console.error(`❌ Ошибка при отправке уведомления студенту ${record.params.username}:`, error);
+                  }
+                  
+                  updatedRecords.push(updatedRecord);
+                }
+                
+                return {
+                  records: updatedRecords.map(record => record.toJSON()),
+                };
+              },
+              component: false,
+              isVisible: (context) => context.resource.id() === 'StudentPayment',
+            },
+            // Действие для обновления статуса оплаты
+            updatePaymentStatus: {
+              actionType: 'record',
+              handler: async (request, response, context) => {
+                const { record, resource } = context;
+                const { status, amount, paidAmount, dueDate, notes } = request.payload;
+                
+                const updateData = {
+                  'payment.status': status,
+                  'payment.updatedAt': new Date()
+                };
+                
+                if (amount !== undefined) updateData['payment.amount'] = amount;
+                if (paidAmount !== undefined) updateData['payment.paidAmount'] = paidAmount;
+                if (dueDate !== undefined) updateData['payment.dueDate'] = dueDate;
+                if (notes !== undefined) updateData['payment.notes'] = notes;
+                
+                // Если статус изменился на 'paid', обновляем дату последней оплаты
+                if (status === 'paid') {
+                  updateData['payment.lastPaymentDate'] = new Date();
+                }
+                
+                const updatedRecord = await resource.update(record.id, updateData);
+                
+                // Отправляем уведомление об изменении статуса оплаты
+                try {
+                  const userId = record.params._id || record.params.id;
+                  await sendPaymentNotification(userId, status);
+                  console.log(`💰 Уведомление отправлено студенту ${record.params.username} (статус: ${status})`);
+                } catch (error) {
+                  console.error(`❌ Ошибка при отправке уведомления студенту ${record.params.username}:`, error);
+                }
+                
+                return {
+                  record: updatedRecord.toJSON(),
+                };
+              },
+              component: false,
+              isVisible: (context) => context.resource.id() === 'StudentPayment',
+            },
+            // Действие для экспорта данных об оплате
+            exportPaymentData: {
+              actionType: 'resource',
+              handler: async (request, response, context) => {
+                const { resource } = context;
+                const students = await resource.find();
+                
+                // Формируем CSV данные
+                const csvData = students.map(student => ({
+                  'Имя пользователя': student.username,
+                  'Имя': student.firstName || '',
+                  'Фамилия': student.lastName || '',
+                  'Email': student.email || '',
+                  'Телефон': student.phone || '',
+                  'Группа': student.group?.name || '',
+                  'Статус оплаты': student.payment?.status || '',
+                  'Сумма к оплате': student.payment?.amount || 0,
+                  'Оплаченная сумма': student.payment?.paidAmount || 0,
+                  'Дата оплаты': student.payment?.dueDate ? new Date(student.payment.dueDate).toLocaleDateString('ru-RU') : '',
+                  'Комментарии': student.payment?.notes || '',
+                  'Дата регистрации': student.createdAt ? new Date(student.createdAt).toLocaleDateString('ru-RU') : ''
+                }));
+                
+                // Устанавливаем заголовки для скачивания CSV
+                response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+                response.setHeader('Content-Disposition', 'attachment; filename=payment_data.csv');
+                
+                // Формируем CSV строку
+                const headers = Object.keys(csvData[0]);
+                const csvString = [
+                  headers.join(','),
+                  ...csvData.map(row => headers.map(header => `"${row[header]}"`).join(','))
+                ].join('\n');
+                
+                response.send(csvString);
+              },
+              component: false,
+              isVisible: (context) => context.resource.id() === 'StudentPayment',
             },
           },
         },
@@ -567,6 +1048,933 @@ D) [вариант D]
           },
           listProperties: ['user', 'lastUpdated'],
           showProperties: ['user', 'subjectStats', 'weakTopics', 'recommendations', 'lastUpdated'],
+        },
+      },
+      {
+        resource: Course,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Book' },
+          label: 'Courses',
+          properties: {
+            _id: { isVisible: false },
+            teacher: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: { $in: ['TEACHER', 'ADMIN'] } }).select('username profile.firstName profile.lastName');
+              },
+            },
+            lessons: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'mixed',
+            },
+            duration: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            level: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['name', 'teacher', 'level', 'status', 'duration', 'price', 'createdAt'],
+          showProperties: ['name', 'description', 'teacher', 'level', 'status', 'duration', 'maxStudents', 'price', 'tags', 'coverImage', 'requirements', 'learningOutcomes', 'lessons', 'createdAt', 'updatedAt'],
+          editProperties: ['name', 'description', 'teacher', 'level', 'status', 'duration', 'maxStudents', 'price', 'tags', 'coverImage', 'requirements', 'learningOutcomes'],
+          createProperties: ['name', 'description', 'teacher', 'level', 'status', 'duration', 'maxStudents', 'price', 'tags', 'coverImage', 'requirements', 'learningOutcomes'],
+        },
+      },
+      {
+        resource: Group,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Users' },
+          label: 'Groups',
+          properties: {
+            _id: { isVisible: false },
+            teacher: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: { $in: ['TEACHER', 'ADMIN'] } }).select('username profile.firstName profile.lastName');
+              },
+            },
+            students: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'mixed',
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: 'STUDENT' }).select('username profile.firstName profile.lastName');
+              },
+            },
+            course: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              reference: 'Course',
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            schedule: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              type: 'mixed',
+            },
+            // meetingLink: {
+            //   isVisible: {
+            //     list: false,
+            //     filter: false,
+            //     show: true,
+            //     edit: true,
+            //     create: true,
+            //   },
+            // },
+            // meetingPassword: {
+            //   isVisible: {
+            //     list: false,
+            //     filter: false,
+            //     show: true,
+            //     edit: true,
+            //     create: true,
+            //   },
+            // },
+            // notes: {
+            //   type: 'textarea',
+            //   isVisible: {
+            //     list: false,
+            //     filter: false,
+            //     show: true,
+            //     edit: true,
+            //     create: true,
+            //   },
+            // },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['name', 'teacher', 'course', 'status', 'studentCount', 'maxStudents', 'createdAt'],
+          showProperties: ['name', 'description', 'teacher', 'course', 'students', 'status', 'maxStudents', 'startDate', 'endDate', 'schedule', 'createdAt', 'updatedAt'],
+          editProperties: ['name', 'description', 'teacher', 'course', 'students', 'status', 'maxStudents', 'startDate', 'endDate'],
+        },
+      },
+      {
+        resource: Lesson,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Video' },
+          label: 'Lessons',
+          properties: {
+            _id: { isVisible: false },
+            course: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            videoUrl: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+
+            materials: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            homework: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['title', 'course', 'group', 'status', 'createdAt'],
+          showProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework', 'status', 'createdAt', 'updatedAt'],
+          editProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework', 'status'],
+        },
+      },
+      {
+        resource: Homework,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Assignment' },
+          label: 'Homework',
+          properties: {
+            _id: { isVisible: false },
+            student: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            lesson: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            course: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            files: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            text: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            grade: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: false,
+              },
+            },
+            teacherComment: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: false,
+              },
+            },
+            gradedBy: {
+              isVisible: {
+                list: false,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            dueDate: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            isLate: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            submittedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            gradedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'submittedAt', 'isLate'],
+          showProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'teacherComment', 'files', 'text', 'dueDate', 'isLate', 'submittedAt', 'gradedAt', 'gradedBy', 'createdAt', 'updatedAt'],
+          editProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'teacherComment', 'files', 'text', 'dueDate'],
+        },
+      },
+      {
+        resource: Schedule,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Calendar' },
+          label: 'Schedule',
+          properties: {
+            _id: { isVisible: false },
+            date: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'date',
+            },
+            startTime: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            endTime: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            title: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            description: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            format: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              availableValues: [
+                { value: 'онлайн', label: 'Онлайн' },
+                { value: 'оффлайн', label: 'Оффлайн' },
+                { value: 'запись', label: 'Запись' },
+              ],
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              availableValues: [
+                { value: 'запланирован', label: 'Запланирован' },
+                { value: 'проведён', label: 'Проведён' },
+                { value: 'перенесён', label: 'Перенесён' },
+                { value: 'отменён', label: 'Отменён' },
+              ],
+            },
+            teacher: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            materials: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            streamLink: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            homework: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            homeworkDeadline: {
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'date',
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['title', 'teacher', 'date', 'startTime', 'endTime', 'format', 'status'],
+          showProperties: ['title', 'description', 'date', 'startTime', 'endTime', 'format', 'status', 'teacher', 'materials', 'streamLink', 'homework', 'homeworkDeadline', 'createdAt', 'updatedAt'],
+          editProperties: ['title', 'description', 'date', 'startTime', 'endTime', 'format', 'status', 'teacher', 'materials', 'streamLink', 'homework', 'homeworkDeadline'],
+        },
+      },
+      {
+        resource: Standup,
+        options: {
+          navigation: { name: 'Education Platform', icon: 'Presentation' },
+          label: 'Standups',
+          properties: {
+            _id: { isVisible: false },
+            student: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            lesson: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            course: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: true,
+              },
+            },
+            type: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            content: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            title: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            description: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            status: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            teacherComment: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: false,
+              },
+            },
+            reviewedBy: {
+              isVisible: {
+                list: false,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            dueDate: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            isLate: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            submittedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            reviewedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            updatedAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'status', 'submittedAt', 'isLate'],
+          showProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'description', 'content', 'status', 'teacherComment', 'dueDate', 'isLate', 'submittedAt', 'reviewedAt', 'reviewedBy', 'createdAt', 'updatedAt'],
+          editProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'description', 'content', 'status', 'teacherComment', 'dueDate'],
+        },
+      },
+      {
+        resource: Notification,
+        options: {
+          navigation: { name: 'Notifications', icon: 'Bell' },
+          label: 'Notifications',
+          properties: {
+            _id: { isVisible: false },
+            type: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              availableValues: [
+                { value: 'new_lesson', label: '📚 Новое занятие' },
+                { value: 'lesson_updated', label: '✏️ Изменение занятия' },
+                { value: 'lesson_cancelled', label: '❌ Отмена занятия' },
+                { value: 'lesson_status_changed', label: '🔄 Изменение статуса' },
+                { value: 'homework_assigned', label: '📝 Домашнее задание' },
+                { value: 'reminder', label: '⏰ Напоминание' },
+                { value: 'payment_confirmed', label: '✅ Оплата подтверждена' },
+                { value: 'payment_required', label: '💰 Требуется оплата' },
+                { value: 'payment_reminder', label: '⏰ Напоминание об оплате' },
+              ],
+            },
+            title: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            message: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+            },
+            lessonId: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              reference: 'Schedule',
+            },
+            teacher: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'string',
+            },
+            date: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              type: 'date',
+            },
+            recipients: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              reference: 'User',
+            },
+            metadata: {
+              type: 'mixed',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+            createdAt: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+            },
+          },
+          listProperties: ['type', 'title', 'teacher', 'date', 'createdAt'],
+          showProperties: ['type', 'title', 'message', 'lessonId', 'teacher', 'date', 'recipients', 'metadata', 'createdAt'],
+          editProperties: ['type', 'title', 'message', 'lessonId', 'teacher', 'date', 'recipients'],
+          filterProperties: ['type', 'teacher', 'date', 'createdAt'],
+          sort: {
+            direction: 'desc',
+            sortBy: 'createdAt',
+          },
+          actions: {
+            new: {
+              before: async (request) => {
+                if (request.payload && request.payload.recipients) {
+                  // Преобразуем recipients в правильный формат
+                  if (Array.isArray(request.payload.recipients)) {
+                    request.payload.recipients = request.payload.recipients.map(userId => ({
+                      userId,
+                      read: false
+                    }));
+                  }
+                }
+                return request;
+              },
+            },
+            edit: {
+              before: async (request) => {
+                if (request.payload && request.payload.recipients) {
+                  // Преобразуем recipients в правильный формат
+                  if (Array.isArray(request.payload.recipients)) {
+                    request.payload.recipients = request.payload.recipients.map(userId => ({
+                      userId,
+                      read: false
+                    }));
+                  }
+                }
+                return request;
+              },
+            },
+          },
         },
       },
     ],

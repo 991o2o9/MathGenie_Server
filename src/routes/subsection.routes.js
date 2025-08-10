@@ -7,7 +7,7 @@ import {
   deleteSubsection,
 } from '../controllers/subsection.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -44,14 +44,14 @@ router.get('/', authMiddleware, getSubsections);
 // Получить один подраздел
 router.get('/:id', authMiddleware, getSubsection);
 // Создать подраздел (ADMIN)
-router.post('/', authMiddleware, roleMiddleware('ADMIN'), createSubsection);
+router.post('/', authMiddleware, isAdmin, createSubsection);
 // Обновить подраздел (ADMIN)
-router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateSubsection);
+router.put('/:id', authMiddleware, isAdmin, updateSubsection);
 // Удалить подраздел (ADMIN)
 router.delete(
   '/:id',
   authMiddleware,
-  roleMiddleware('ADMIN'),
+  isAdmin,
   deleteSubsection
 );
 

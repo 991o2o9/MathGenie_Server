@@ -7,7 +7,7 @@ import {
   deleteUser,
 } from '../controllers/user.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import roleMiddleware from '../middlewares/role.middleware.js';
+import { isAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -80,7 +80,7 @@ const router = express.Router();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [ADMIN, USER]
+ *                 enum: [ADMIN, TEACHER, STUDENT]
  *     responses:
  *       201:
  *         description: Пользователь создан
@@ -117,7 +117,7 @@ const router = express.Router();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [ADMIN, USER]
+ *                 enum: [ADMIN, TEACHER, STUDENT]
  *     responses:
  *       200:
  *         description: Пользователь обновлён
@@ -151,14 +151,14 @@ const router = express.Router();
  */
 
 // Получить всех пользователей (ADMIN)
-router.get('/', authMiddleware, roleMiddleware('ADMIN'), getUsers);
+router.get('/', authMiddleware, isAdmin, getUsers);
 // Получить одного пользователя (ADMIN)
-router.get('/:id', authMiddleware, roleMiddleware('ADMIN'), getUser);
+router.get('/:id', authMiddleware, isAdmin, getUser);
 // Создать пользователя (ADMIN)
-router.post('/', authMiddleware, roleMiddleware('ADMIN'), createUser);
+router.post('/', authMiddleware, isAdmin, createUser);
 // Обновить пользователя (ADMIN)
-router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), updateUser);
+router.put('/:id', authMiddleware, isAdmin, updateUser);
 // Удалить пользователя (ADMIN)
-router.delete('/:id', authMiddleware, roleMiddleware('ADMIN'), deleteUser);
+router.delete('/:id', authMiddleware, isAdmin, deleteUser);
 
 export default router;

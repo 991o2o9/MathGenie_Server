@@ -188,9 +188,9 @@ async function getStudentSchedule(req, res) {
 
     let query = { group: group._id };
     
-    // Фильтр по датам
+    // Фильтр по датам (теперь используем dateTime)
     if (startDate && endDate) {
-      query.date = {
+      query.dateTime = {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       };
@@ -200,24 +200,24 @@ async function getStudentSchedule(req, res) {
       .populate('lesson', 'title description videoUrl')
       .populate('course', 'name')
       .populate('group', 'name')
-      .sort({ date: 1, startTime: 1 });
+      .populate('teacher', 'username profile.firstName profile.lastName')
+      .sort({ dateTime: 1 });
 
     const formattedSchedules = schedules.map(schedule => ({
       id: schedule._id,
       lesson: schedule.lesson,
       course: schedule.course,
       group: schedule.group,
-      date: schedule.date,
-      startTime: schedule.startTime,
+      teacher: schedule.teacher,
+      dateTime: schedule.dateTime,
       endTime: schedule.endTime,
-      duration: schedule.duration,
+      format: schedule.format,
       status: schedule.status,
       statusText: schedule.statusText,
-      meetingLink: schedule.meetingLink,
-      meetingPassword: schedule.meetingPassword,
-      location: schedule.location,
-      notes: schedule.notes,
-      recordingUrl: schedule.recordingUrl
+      // Добавляем виртуальные поля для удобства
+      date: schedule.dateTime.toISOString().split('T')[0],
+      startTime: schedule.dateTime.toTimeString().slice(0, 5),
+      duration: Math.round((schedule.endTime - schedule.dateTime) / (1000 * 60)) // в минутах
     }));
 
     res.json({

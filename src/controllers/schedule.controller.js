@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Schedule from '../models/schedule.model.js';
 import User from '../models/user.model.js';
 import { sendNotification } from '../utils/notifications.js';
@@ -5,22 +6,45 @@ import { sendNotification } from '../utils/notifications.js';
 // Получить все занятия с фильтрацией
 export const getSchedule = async (req, res) => {
   try {
-    const { date, status, format, teacher } = req.query;
+    const { date, status, format, teacher, group } = req.query;
     const filter = {};
 
+    // Фильтр по дате (теперь используем dateTime)
     if (date) {
       const startDate = new Date(date);
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() + 1);
-      filter.date = { $gte: startDate, $lt: endDate };
+      filter.dateTime = { $gte: startDate, $lt: endDate };
     }
 
     if (status) filter.status = status;
     if (format) filter.format = format;
     if (teacher) filter.teacher = teacher;
+    if (group) filter.group = group;
+
+    // Если пользователь авторизован и является студентом, показываем только его группу
+    if (req.user && req.user.role === 'STUDENT') {
+      const User = mongoose.model('User');
+      const Group = mongoose.model('Group');
+      
+      const studentGroup = await Group.findOne({ students: req.user._id }).select('_id');
+      if (studentGroup) {
+        filter.group = studentGroup._id;
+      } else {
+        // Если студент не в группе, возвращаем пустой массив
+        return res.json({
+          success: true,
+          data: []
+        });
+      }
+    }
 
     const schedule = await Schedule.find(filter)
-      .sort({ date: 1, startTime: 1 })
+      .populate('lesson', 'title description')
+      .populate('teacher', 'username profile.firstName profile.lastName')
+      .populate('group', 'name')
+      .populate('course', 'name')
+      .sort({ dateTime: 1 })
       .lean();
 
     res.json({
@@ -68,7 +92,7 @@ export const createSchedule = async (req, res) => {
     const lessonData = req.body;
     
     // Проверка обязательных полей
-    const requiredFields = ['date', 'startTime', 'endTime', 'title', 'teacher'];
+    const requiredFields = ['dateTime', 'lesson'];
     for (const field of requiredFields) {
       if (!lessonData[field]) {
         return res.status(400).json({
@@ -81,12 +105,15 @@ export const createSchedule = async (req, res) => {
     const newLesson = new Schedule(lessonData);
     const savedLesson = await newLesson.save();
 
-    // Получаем всех студентов для отправки уведомлений
-    const students = await User.find({ role: 'STUDENT' }).select('_id');
-    const studentIds = students.map(student => student._id);
-
-    // Отправка уведомлений студентам о новом занятии
-    await sendNotification('new_lesson', savedLesson, studentIds);
+    // Получаем студентов группы для отправки уведомлений
+    if (savedLesson.group) {
+      const Group = mongoose.model('Group');
+      const group = await Group.findById(savedLesson.group).populate('students');
+      if (group && group.students) {
+        const studentIds = group.students.map(student => student._id);
+        await sendNotification('new_lesson', savedLesson, studentIds);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -108,9 +135,9 @@ export const updateSchedule = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     const userRole = req.user.role;
-    const userTeacherName = req.user.name; // Предполагаем, что у пользователя есть поле name
+    const userId = req.user._id;
 
-    const lesson = await Schedule.findById(id);
+    const lesson = await Schedule.findById(id).populate('teacher');
     if (!lesson) {
       return res.status(404).json({
         success: false,
@@ -119,7 +146,7 @@ export const updateSchedule = async (req, res) => {
     }
 
     // Проверка прав доступа
-    if (userRole === 'teacher' && lesson.teacher !== userTeacherName) {
+    if (userRole === 'TEACHER' && lesson.teacher._id.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'У вас нет прав на редактирование этого занятия'
@@ -127,9 +154,10 @@ export const updateSchedule = async (req, res) => {
     }
 
     // Учитель не может изменять некоторые поля
-    if (userRole === 'teacher') {
+    if (userRole === 'TEACHER') {
       delete updateData.teacher; // Учитель не может менять преподавателя
-      delete updateData.status; // Учитель не может менять статус на "отменён"
+      delete updateData.lesson; // Учитель не может менять урок
+      delete updateData.group; // Учитель не может менять группу
     }
 
     const updatedLesson = await Schedule.findByIdAndUpdate(
@@ -138,12 +166,15 @@ export const updateSchedule = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    // Получаем всех студентов для отправки уведомлений
-    const students = await User.find({ role: 'STUDENT' }).select('_id');
-    const studentIds = students.map(student => student._id);
-
-    // Отправка уведомлений об изменениях
-    await sendNotification('lesson_updated', updatedLesson, studentIds);
+    // Получаем студентов группы для отправки уведомлений
+    if (updatedLesson.group) {
+      const Group = mongoose.model('Group');
+      const group = await Group.findById(updatedLesson.group).populate('students');
+      if (group && group.students) {
+        const studentIds = group.students.map(student => student._id);
+        await sendNotification('lesson_updated', updatedLesson, studentIds);
+      }
+    }
 
     res.json({
       success: true,
@@ -165,7 +196,7 @@ export const deleteSchedule = async (req, res) => {
     const { id } = req.params;
     const userRole = req.user.role;
 
-    if (userRole !== 'admin') {
+    if (userRole !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Только администратор может удалять занятия'
@@ -182,12 +213,15 @@ export const deleteSchedule = async (req, res) => {
 
     await Schedule.findByIdAndDelete(id);
 
-    // Получаем всех студентов для отправки уведомлений
-    const students = await User.find({ role: 'STUDENT' }).select('_id');
-    const studentIds = students.map(student => student._id);
-
-    // Отправка уведомлений об отмене занятия
-    await sendNotification('lesson_cancelled', lesson, studentIds);
+    // Получаем студентов группы для отправки уведомлений
+    if (lesson.group) {
+      const Group = mongoose.model('Group');
+      const group = await Group.findById(lesson.group).populate('students');
+      if (group && group.students) {
+        const studentIds = group.students.map(student => student._id);
+        await sendNotification('lesson_cancelled', lesson, studentIds);
+      }
+    }
 
     res.json({
       success: true,

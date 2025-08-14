@@ -1262,6 +1262,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Course',
             },
             group: {
               isVisible: {
@@ -1271,6 +1272,7 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              reference: 'Group',
             },
             videoUrl: {
               isVisible: {
@@ -1292,8 +1294,8 @@ D) [вариант D]
                 create: true,
               },
             },
-            homework: {
-              type: 'mixed',
+            'homework.description': {
+              type: 'textarea',
               isVisible: {
                 list: false,
                 filter: false,
@@ -1301,6 +1303,30 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              label: 'Описание домашнего задания',
+            },
+            'homework.dueDate': {
+              type: 'date',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              label: 'Срок сдачи домашнего задания',
+            },
+            'homework.maxGrade': {
+              type: 'number',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              label: 'Максимальная оценка',
+              defaultValue: 100,
             },
             status: {
               isVisible: {
@@ -1332,8 +1358,60 @@ D) [вариант D]
             },
           },
           listProperties: ['title', 'course', 'group', 'status', 'createdAt'],
-          showProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework', 'status', 'createdAt', 'updatedAt'],
-          editProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework', 'status'],
+          showProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework.description', 'homework.dueDate', 'homework.maxGrade', 'status', 'createdAt', 'updatedAt'],
+          editProperties: ['title', 'description', 'course', 'group', 'videoUrl', 'materials', 'homework.description', 'homework.dueDate', 'homework.maxGrade', 'status'],
+          actions: {
+            // Действие для создания домашних заданий для всех студентов группы
+            createHomeworkForLesson: {
+              actionType: 'record',
+              handler: async (request, response, context) => {
+                const { record, resource } = context;
+                const { description, dueDate } = request.payload;
+                
+                try {
+                  const Group = mongoose.model('Group');
+                  const Homework = mongoose.model('Homework');
+                  
+                  const lesson = record.params;
+                  const group = await Group.findById(lesson.group).populate('students');
+                  
+                  if (!group || !group.students || group.students.length === 0) {
+                    throw new Error('Группа не найдена или в ней нет студентов');
+                  }
+                  
+                  const createdHomework = [];
+                  
+                  // Создаем домашнее задание для каждого студента
+                  for (const student of group.students) {
+                    const homeworkData = {
+                      student: student._id,
+                      lesson: lesson._id,
+                      course: group.course,
+                      group: group._id,
+                      text: description || lesson['homework.description'] || '',
+                      dueDate: dueDate ? new Date(dueDate) : (lesson['homework.dueDate'] ? new Date(lesson['homework.dueDate']) : null),
+                      status: 'draft'
+                    };
+                    
+                    const homework = await Homework.create(homeworkData);
+                    createdHomework.push(homework);
+                  }
+                  
+                  return {
+                    record: record.toJSON(),
+                    notice: {
+                      message: `Создано ${createdHomework.length} домашних заданий для группы ${group.name}`,
+                      type: 'success'
+                    }
+                  };
+                } catch (error) {
+                  throw new Error(`Ошибка при создании домашних заданий: ${error.message}`);
+                }
+              },
+              component: false,
+              isVisible: (context) => context.resource.id() === 'Lesson',
+            },
+          },
         },
       },
       {
@@ -1351,6 +1429,11 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: 'STUDENT' }).select('username profile.firstName profile.lastName');
+              },
             },
             lesson: {
               isVisible: {
@@ -1360,6 +1443,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Lesson',
             },
             course: {
               isVisible: {
@@ -1369,6 +1453,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Course',
             },
             group: {
               isVisible: {
@@ -1378,6 +1463,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Group',
             },
             files: {
               type: 'mixed',
@@ -1494,6 +1580,56 @@ D) [вариант D]
           listProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'submittedAt', 'isLate'],
           showProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'teacherComment', 'files', 'text', 'dueDate', 'isLate', 'submittedAt', 'gradedAt', 'gradedBy', 'createdAt', 'updatedAt'],
           editProperties: ['student', 'lesson', 'course', 'group', 'status', 'grade', 'teacherComment', 'files', 'text', 'dueDate'],
+          actions: {
+            // Действие для массового создания домашних заданий для всех студентов группы
+            createHomeworkForGroup: {
+              actionType: 'resource',
+              handler: async (request, response, context) => {
+                const { resource } = context;
+                const { lessonId, groupId, dueDate, description } = request.payload;
+                
+                try {
+                  // Получаем всех студентов группы
+                  const Group = mongoose.model('Group');
+                  const group = await Group.findById(groupId).populate('students');
+                  
+                  if (!group || !group.students) {
+                    throw new Error('Группа не найдена или в ней нет студентов');
+                  }
+                  
+                  const createdHomework = [];
+                  
+                  // Создаем домашнее задание для каждого студента
+                  for (const student of group.students) {
+                    const homeworkData = {
+                      student: student._id,
+                      lesson: lessonId,
+                      course: group.course,
+                      group: groupId,
+                      text: description || '',
+                      dueDate: dueDate ? new Date(dueDate) : null,
+                      status: 'draft'
+                    };
+                    
+                    const homework = await resource.create(homeworkData);
+                    createdHomework.push(homework);
+                  }
+                  
+                  return {
+                    records: createdHomework.map(hw => hw.toJSON()),
+                    notice: {
+                      message: `Создано ${createdHomework.length} домашних заданий для группы ${group.name}`,
+                      type: 'success'
+                    }
+                  };
+                } catch (error) {
+                  throw new Error(`Ошибка при создании домашних заданий: ${error.message}`);
+                }
+              },
+              component: false,
+              isVisible: (context) => context.resource.id() === 'Homework',
+            },
+          },
         },
       },
       {
@@ -1503,7 +1639,7 @@ D) [вариант D]
           label: 'Schedule',
           properties: {
             _id: { isVisible: false },
-            date: {
+            dateTime: {
               isVisible: {
                 list: true,
                 filter: true,
@@ -1511,29 +1647,21 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
-              type: 'date',
-            },
-            startTime: {
-              isVisible: {
-                list: true,
-                filter: true,
-                show: true,
-                edit: true,
-                create: true,
-              },
-              type: 'string',
+              type: 'datetime',
+              label: 'Дата и время начала урока',
             },
             endTime: {
               isVisible: {
                 list: true,
                 filter: true,
                 show: true,
-                edit: true,
-                create: true,
+                edit: false,
+                create: false,
               },
-              type: 'string',
+              type: 'datetime',
+              label: 'Дата и время окончания урока',
             },
-            title: {
+            lesson: {
               isVisible: {
                 list: true,
                 filter: true,
@@ -1541,31 +1669,55 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
-              type: 'string',
+              reference: 'Lesson',
+              label: 'Урок',
             },
-            description: {
-              type: 'textarea',
+            teacher: {
               isVisible: {
-                list: false,
-                filter: false,
+                list: true,
+                filter: true,
                 show: true,
-                edit: true,
-                create: true,
+                edit: false,
+                create: false,
               },
+              reference: 'User',
+              label: 'Преподаватель',
+            },
+            group: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              reference: 'Group',
+              label: 'Группа',
+            },
+            course: {
+              isVisible: {
+                list: true,
+                filter: true,
+                show: true,
+                edit: false,
+                create: false,
+              },
+              reference: 'Course',
+              label: 'Курс',
             },
             format: {
               isVisible: {
                 list: true,
                 filter: true,
                 show: true,
-                edit: true,
-                create: true,
+                edit: false,
+                create: false,
               },
               availableValues: [
                 { value: 'онлайн', label: 'Онлайн' },
                 { value: 'оффлайн', label: 'Оффлайн' },
-                { value: 'запись', label: 'Запись' },
               ],
+              label: 'Формат',
             },
             status: {
               isVisible: {
@@ -1581,56 +1733,7 @@ D) [вариант D]
                 { value: 'перенесён', label: 'Перенесён' },
                 { value: 'отменён', label: 'Отменён' },
               ],
-            },
-            teacher: {
-              isVisible: {
-                list: true,
-                filter: true,
-                show: true,
-                edit: true,
-                create: true,
-              },
-              type: 'string',
-            },
-            materials: {
-              type: 'mixed',
-              isVisible: {
-                list: false,
-                filter: false,
-                show: true,
-                edit: true,
-                create: true,
-              },
-            },
-            streamLink: {
-              isVisible: {
-                list: false,
-                filter: false,
-                show: true,
-                edit: true,
-                create: true,
-              },
-              type: 'string',
-            },
-            homework: {
-              type: 'textarea',
-              isVisible: {
-                list: false,
-                filter: false,
-                show: true,
-                edit: true,
-                create: true,
-              },
-            },
-            homeworkDeadline: {
-              isVisible: {
-                list: false,
-                filter: false,
-                show: true,
-                edit: true,
-                create: true,
-              },
-              type: 'date',
+              label: 'Статус',
             },
             createdAt: {
               isVisible: {
@@ -1640,6 +1743,8 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата создания',
             },
             updatedAt: {
               isVisible: {
@@ -1649,11 +1754,38 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата обновления',
             },
           },
-          listProperties: ['title', 'teacher', 'date', 'startTime', 'endTime', 'format', 'status'],
-          showProperties: ['title', 'description', 'date', 'startTime', 'endTime', 'format', 'status', 'teacher', 'materials', 'streamLink', 'homework', 'homeworkDeadline', 'createdAt', 'updatedAt'],
-          editProperties: ['title', 'description', 'date', 'startTime', 'endTime', 'format', 'status', 'teacher', 'materials', 'streamLink', 'homework', 'homeworkDeadline'],
+          listProperties: ['dateTime', 'lesson', 'teacher', 'group', 'format', 'status'],
+          showProperties: ['dateTime', 'endTime', 'lesson', 'teacher', 'group', 'course', 'format', 'status', 'createdAt', 'updatedAt'],
+          editProperties: ['dateTime', 'lesson', 'status'],
+          createProperties: ['dateTime', 'lesson', 'status'],
+          actions: {
+            new: {
+              before: async (request) => {
+                // Автоматически рассчитываем время окончания (1.5 часа по умолчанию)
+                if (request.payload && request.payload.dateTime) {
+                  const startTime = new Date(request.payload.dateTime);
+                  const endTime = new Date(startTime.getTime() + 90 * 60 * 1000); // +1.5 часа
+                  request.payload.endTime = endTime;
+                }
+                return request;
+              },
+            },
+            edit: {
+              before: async (request) => {
+                // Автоматически рассчитываем время окончания при изменении времени начала
+                if (request.payload && request.payload.dateTime) {
+                  const startTime = new Date(request.payload.dateTime);
+                  const endTime = new Date(startTime.getTime() + 90 * 60 * 1000); // +1.5 часа
+                  request.payload.endTime = endTime;
+                }
+                return request;
+              },
+            },
+          },
         },
       },
       {
@@ -1671,6 +1803,11 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: 'STUDENT' }).select('username profile.firstName profile.lastName');
+              },
             },
             lesson: {
               isVisible: {
@@ -1680,6 +1817,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Lesson',
             },
             course: {
               isVisible: {
@@ -1689,6 +1827,7 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Course',
             },
             group: {
               isVisible: {
@@ -1698,17 +1837,19 @@ D) [вариант D]
                 edit: false,
                 create: true,
               },
+              reference: 'Group',
             },
-            type: {
+            homework: {
               isVisible: {
                 list: true,
                 filter: true,
                 show: true,
-                edit: true,
+                edit: false,
                 create: true,
               },
+              reference: 'Homework',
             },
-            content: {
+            whatDone: {
               type: 'textarea',
               isVisible: {
                 list: false,
@@ -1717,17 +1858,9 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              label: 'Что сделано',
             },
-            title: {
-              isVisible: {
-                list: true,
-                filter: true,
-                show: true,
-                edit: true,
-                create: true,
-              },
-            },
-            description: {
+            problems: {
               type: 'textarea',
               isVisible: {
                 list: false,
@@ -1736,6 +1869,18 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              label: 'Проблемы',
+            },
+            whatWillDo: {
+              type: 'textarea',
+              isVisible: {
+                list: false,
+                filter: false,
+                show: true,
+                edit: true,
+                create: true,
+              },
+              label: 'Что буду делать',
             },
             status: {
               isVisible: {
@@ -1745,6 +1890,11 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              availableValues: [
+                { value: 'draft', label: 'Черновик' },
+                { value: 'submitted', label: 'Отправлено' },
+                { value: 'reviewed', label: 'Проверено' },
+              ],
             },
             teacherComment: {
               type: 'textarea',
@@ -1755,6 +1905,7 @@ D) [вариант D]
                 edit: true,
                 create: false,
               },
+              label: 'Комментарий учителя',
             },
             reviewedBy: {
               isVisible: {
@@ -1763,6 +1914,11 @@ D) [вариант D]
                 show: true,
                 edit: false,
                 create: false,
+              },
+              reference: 'User',
+              available: async () => {
+                const User = mongoose.model('User');
+                return User.find({ role: { $in: ['TEACHER', 'ADMIN'] } }).select('username profile.firstName profile.lastName');
               },
             },
             dueDate: {
@@ -1773,6 +1929,8 @@ D) [вариант D]
                 edit: true,
                 create: true,
               },
+              type: 'date',
+              label: 'Срок сдачи',
             },
             isLate: {
               isVisible: {
@@ -1782,6 +1940,7 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              label: 'Сдано с опозданием',
             },
             submittedAt: {
               isVisible: {
@@ -1791,6 +1950,8 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата отправки',
             },
             reviewedAt: {
               isVisible: {
@@ -1800,6 +1961,8 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата проверки',
             },
             createdAt: {
               isVisible: {
@@ -1809,6 +1972,8 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата создания',
             },
             updatedAt: {
               isVisible: {
@@ -1818,11 +1983,14 @@ D) [вариант D]
                 edit: false,
                 create: false,
               },
+              type: 'date',
+              label: 'Дата обновления',
             },
           },
-          listProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'status', 'submittedAt', 'isLate'],
-          showProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'description', 'content', 'status', 'teacherComment', 'dueDate', 'isLate', 'submittedAt', 'reviewedAt', 'reviewedBy', 'createdAt', 'updatedAt'],
-          editProperties: ['student', 'lesson', 'course', 'group', 'type', 'title', 'description', 'content', 'status', 'teacherComment', 'dueDate'],
+          listProperties: ['student', 'lesson', 'course', 'group', 'homework', 'status', 'submittedAt', 'isLate'],
+          showProperties: ['student', 'lesson', 'course', 'group', 'homework', 'whatDone', 'problems', 'whatWillDo', 'status', 'teacherComment', 'dueDate', 'isLate', 'submittedAt', 'reviewedAt', 'reviewedBy', 'createdAt', 'updatedAt'],
+          editProperties: ['student', 'lesson', 'course', 'group', 'homework', 'whatDone', 'problems', 'whatWillDo', 'status', 'teacherComment', 'dueDate'],
+          createProperties: ['student', 'lesson', 'course', 'group', 'homework', 'whatDone', 'problems', 'whatWillDo', 'status', 'dueDate'],
         },
       },
       {

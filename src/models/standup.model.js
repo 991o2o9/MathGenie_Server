@@ -21,14 +21,27 @@ const standupSchema = new mongoose.Schema({
     ref: 'Group', 
     required: true 
   },
-  type: { 
-    type: String, 
-    enum: ['video', 'text', 'audio'], 
+  homework: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Homework', 
     required: true 
   },
-  content: { type: String, required: true }, // URL видео/аудио или текст
-  title: { type: String }, // Заголовок стендапа
-  description: { type: String }, // Описание
+  // Три поля стендапа, которые заполняет ученик
+  whatDone: { 
+    type: String, 
+    required: true,
+    label: 'Что сделано'
+  },
+  problems: { 
+    type: String, 
+    required: true,
+    label: 'Проблемы'
+  },
+  whatWillDo: { 
+    type: String, 
+    required: true,
+    label: 'Что буду делать'
+  },
   status: { 
     type: String, 
     enum: ['draft', 'submitted', 'reviewed'], 
@@ -69,23 +82,13 @@ standupSchema.virtual('statusText').get(function() {
   return statusMap[this.status] || this.status;
 });
 
-// Виртуальное поле для типа на русском
-standupSchema.virtual('typeText').get(function() {
-  const typeMap = {
-    'video': 'Видео',
-    'text': 'Текст',
-    'audio': 'Аудио'
-  };
-  return typeMap[this.type] || this.type;
-});
-
 // Индексы для оптимизации
 standupSchema.index({ student: 1 });
 standupSchema.index({ lesson: 1 });
 standupSchema.index({ course: 1 });
 standupSchema.index({ group: 1 });
+standupSchema.index({ homework: 1 });
 standupSchema.index({ status: 1 });
-standupSchema.index({ type: 1 });
 standupSchema.index({ submittedAt: 1 });
 
 const Standup = mongoose.model('Standup', standupSchema);

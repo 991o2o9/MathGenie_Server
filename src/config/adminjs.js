@@ -74,8 +74,9 @@ async function getAdminConfig() {
                 edit: true,
                 create: true,
               },
-              type: 'string',
+              type: 'password',
               isTitle: false,
+              label: 'Пароль',
             },
             role: {
               isVisible: {
@@ -190,9 +191,9 @@ async function getAdminConfig() {
               type: 'date',
             },
           },
-          listProperties: ['username', 'profile.firstName', 'profile.lastName', 'role', 'group', 'createdAt'],
-          showProperties: ['username', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio', 'createdAt'],
-          editProperties: ['username', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio'],
+          listProperties: ['username', 'plainPassword', 'profile.firstName', 'profile.lastName', 'role', 'group', 'createdAt'],
+          showProperties: ['username', 'plainPassword', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio', 'createdAt'],
+          editProperties: ['username', 'plainPassword', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio'],
           createProperties: ['username', 'plainPassword', 'role', 'group', 'courses', 'profile.firstName', 'profile.lastName', 'profile.email', 'profile.phone', 'profile.avatar', 'profile.bio'],
           filterProperties: ['username', 'role', 'group', 'profile.firstName', 'profile.lastName', 'profile.email'],
           label: 'Users',
@@ -200,35 +201,30 @@ async function getAdminConfig() {
             new: {
               before: async (request) => {
                 if (request.payload && request.payload.plainPassword) {
-                  // Сохраняем исходный пароль
+                  // Сохраняем исходный пароль в plainPassword
                   const originalPassword = request.payload.plainPassword;
                   // Хешируем пароль для поля password
-                  request.payload.password = await hashPassword(
-                    originalPassword
-                  );
+                  request.payload.password = await hashPassword(originalPassword);
+                  // plainPassword уже содержит исходный пароль, оставляем как есть
                 }
-                
-
-                
                 return request;
               },
             },
             edit: {
               before: async (request) => {
                 if (request.payload && request.payload.plainPassword) {
-                  // Сохраняем исходный пароль
+                  // Сохраняем исходный пароль в plainPassword
                   const originalPassword = request.payload.plainPassword;
                   // Хешируем пароль для поля password
-                  request.payload.password = await hashPassword(
-                    originalPassword
-                  );
+                  request.payload.password = await hashPassword(originalPassword);
+                  // plainPassword уже содержит исходный пароль, оставляем как есть
                 } else if (request.payload) {
+                  // Если пароль не изменялся, удаляем его из payload
                   delete request.payload.password;
+                  delete request.payload.plainPassword;
                 }
-                
                 return request;
               },
-
             },
           },
         },
